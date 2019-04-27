@@ -36,4 +36,9 @@ void conv(double **src, int src_rows, int src_cols, double **kernel, int ker_row
  */
 void distTrans(double **src, int src_rows, int src_cols, double **dst);
 
+/**
+ * Dilate the binary image based on its distance map
+ */
+void dilate(double **src, int src_rows, int src_cols, int d, double **dst);
+
 #endif // __IMPROC_H
