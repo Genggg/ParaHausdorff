@@ -11,12 +11,20 @@ int main(int argc, char** argv)
 	int img_cols = image.cols;
 	int ker_rows = 5;
 	int ker_cols = 5;
-	double **gauss_kernel = getGaussianKernel(ker_rows,ker_cols,2,2);
-	double **src = img2Array(image);
+	
+    /** Gaussian filtering test */
+    double **src = img2Array(image);
 	double **dst = memAlloc2D(img_rows, img_cols);
+    double **gauss_kernel = getGaussianKernel(ker_rows,ker_cols,2,2);
 	conv(src, img_rows, img_cols, gauss_kernel, ker_rows, ker_cols, dst);
 	Mat res = array2Img(dst, img_rows, img_cols);
 	imwrite( "Smoothed_Image.jpg", res);
+
+    /** Distance transform test */
+    double **dst1 = memAlloc2D(img_rows, img_cols);
+    distTrans(src, img_rows, img_cols ,dst1);
+    Mat res1 = array2Img(dst1, img_rows, img_cols);
+	imwrite( "elena_distance.jpg", res1);
 
 	return 0;											
 }

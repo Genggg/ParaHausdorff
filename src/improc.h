@@ -2,6 +2,7 @@
 #define __IMPROC_H
 
 #include <iostream>
+#include <cmath>
 #include <opencv2/opencv.hpp>
 using namespace cv;
 
@@ -30,6 +31,9 @@ Mat array2Img(double **src, int rows, int cols);
  */
 void conv(double **src, int src_rows, int src_cols, double **kernel, int ker_rows, int ker_cols, double **dst);
 
-
+/**
+ * Distance Transform
+ */
+void distTrans(double **src, int src_rows, int src_cols, double **dst);
 
 #endif // __IMPROC_H

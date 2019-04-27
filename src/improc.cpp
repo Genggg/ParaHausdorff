@@ -1,4 +1,4 @@
-#include"improc.h"
+#include "improc.h"
 using namespace cv;
 using namespace std;
 
@@ -77,4 +77,35 @@ void conv(double **src, int src_rows, int src_cols, double **kernel, int ker_row
 			dst[x][y] = sum;
 		}
 	}
+}
+
+/**
+ * Distance Transform
+ */
+void distTrans(double **src, int src_rows, int src_cols, double **dst) {
+	for (int i = 0; i < src_rows; i++) {
+		for (int j = 0; j < src_cols; j++) {
+			if (src[i][j] > 0) dst[i][j] = 0;
+			else dst[i][j] = (double)INT_MAX;
+		}
+	}
+
+	for (int k = 0; k <= src_rows + src_cols -2; k++) {
+		for (int i = min(k, src_rows-1), j = k - i; i >= 0 && j < src_cols; i--, j++) {
+			if (i == 0 && j == 0) continue;
+			else if (i == 0) dst[i][j] = min(dst[i][j], dst[i][j-1] + 1);
+			else if (j == 0) dst[i][j] = min(dst[i][j], dst[i-1][j] + 1);
+			else dst[i][j] = min(dst[i][j], min(dst[i][j-1], dst[i-1][j]) + 1);
+		}
+	}
+
+	for (int k = src_rows + src_cols - 2; k >= 0; k--) {
+		for (int j = min(k, src_cols-1), i = k - j; j >= 0 && i < src_rows; j--, i++) {
+			if (i == src_rows - 1 && j == src_cols - 1) continue;
+			else if (i == src_rows - 1) dst[i][j] = min(dst[i][j], dst[i][j+1] + 1);
+			else if (j == src_cols - 1) dst[i][j] = min(dst[i][j], dst[i+1][j] + 1);
+			else dst[i][j] = min(dst[i][j], min(dst[i][j+1], dst[i+1][j]) + 1);
+		}
+	}
+	cout << "Distance transform completed!" << endl;
 }
