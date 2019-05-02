@@ -1,4 +1,6 @@
 #include "improc.h"
+#define USE_OMP 1
+#define NUM_THREADS 8
 using namespace cv;
 using namespace std;
 
@@ -35,15 +37,14 @@ double** getGaussianKernel(int rows, int cols, double sigmax, double sigmay)
 /**
  * Store an image in a 2D array
  */
-double** img2Array(Mat image) {
-	int rows = image.rows;
-	int cols = image.cols;
-	// cout << "original: " << (int)image.at<uchar>(100,100) << endl;
+double** img2Array(Mat img) {
+	int rows = img.rows;
+	int cols = img.cols;
 
 	double **array = memAlloc2D(rows, cols);
 	for (int i = 0; i < rows; i++) 
 		for (int j = 0; j < cols; j++) 
-			array[i][j] = (double)image.at<uchar>(i,j);
+			array[i][j] = (double)img.at<uchar>(i,j);
 	return array;
 }
 
@@ -62,8 +63,15 @@ Mat array2Img(double **src, int rows, int cols) {
  * Convolution
  */
 void conv(double **src, int src_rows, int src_cols, double **kernel, int ker_rows, int ker_cols, double **dst) {
+	
 	int offset_x = ker_rows / 2;
 	int offset_y = ker_cols / 2;
+	double t1, t2;
+	double sizeGB = src_rows * src_cols * sizeof(double) / (1024.0 * 1024.0 * 1024.0);
+
+	omp_set_num_threads(NUM_THREADS);
+    t1 = omp_get_wtime();
+	#pragma omp parallel for if (USE_OMP)
 	for (int x = 0; x < src_rows; x++) {
 		for (int y = 0; y < src_cols; y++) {
 			double sum = 0;
@@ -77,12 +85,25 @@ void conv(double **src, int src_rows, int src_cols, double **kernel, int ker_row
 			dst[x][y] = sum;
 		}
 	}
+
+	t2 = omp_get_wtime();
+    printf("Convolution [%d, %d] : %gs\n", src_rows, src_cols, t2-t1);
 }
 
 /**
  * Distance Transform
  */
 void distTrans(double **src, int src_rows, int src_cols, double **dst) {
+
+	double t1, t2;
+	double sizeGB = src_rows * src_cols * sizeof(double) / (1024.0 * 1024.0 * 1024.0);
+	omp_set_num_threads(NUM_THREADS);
+    t1 = omp_get_wtime();
+
+// #pragma omp parallel if (USE_OMP)
+// {	
+	/** Initialize distance map */
+	#pragma omp parallel for collapse(2) if (USE_OMP)
 	for (int i = 0; i < src_rows; i++) {
 		for (int j = 0; j < src_cols; j++) {
 			if (src[i][j] > 0) dst[i][j] = 0;
@@ -90,8 +111,10 @@ void distTrans(double **src, int src_rows, int src_cols, double **dst) {
 		}
 	}
 
+	/** First pass */
 	for (int k = 0; k <= src_rows + src_cols -2; k++) {
-		for (int i = min(k, src_rows-1), j = k - i; i >= 0 && j < src_cols; i--, j++) {
+		for (int i = min(k, src_rows-1); i >= 0 && k - i < src_cols; i--) {
+			int j = k - i;
 			if (i == 0 && j == 0) continue;
 			else if (i == 0) dst[i][j] = min(dst[i][j], dst[i][j-1] + 1);
 			else if (j == 0) dst[i][j] = min(dst[i][j], dst[i-1][j] + 1);
@@ -99,24 +122,36 @@ void distTrans(double **src, int src_rows, int src_cols, double **dst) {
 		}
 	}
 
+	/** Second pass */
 	for (int k = src_rows + src_cols - 2; k >= 0; k--) {
-		for (int j = min(k, src_cols-1), i = k - j; j >= 0 && i < src_rows; j--, i++) {
+		for (int j = min(k, src_cols-1); j >= 0 && k - j < src_rows; j--) {
+			int i = k - j;
 			if (i == src_rows - 1 && j == src_cols - 1) continue;
 			else if (i == src_rows - 1) dst[i][j] = min(dst[i][j], dst[i][j+1] + 1);
 			else if (j == src_cols - 1) dst[i][j] = min(dst[i][j], dst[i+1][j] + 1);
 			else dst[i][j] = min(dst[i][j], min(dst[i][j+1], dst[i+1][j]) + 1);
 		}
 	}
-	cout << "Distance transform completed!" << endl;
+// }
+	t2 = omp_get_wtime();
+	printf("DistTrans [%d, %d] : %gs\n", src_rows, src_cols, t2-t1);
 }
 
 /**
  * Dilate the binary image based on its distance map
  */
 void dilate(double **src, int src_rows, int src_cols, int d, double **dst) {
+	double t1, t2;
+	double sizeGB = src_rows * src_cols * sizeof(double) / (1024.0 * 1024.0 * 1024.0);
+
+	omp_set_num_threads(NUM_THREADS);
+    t1 = omp_get_wtime();
+	#pragma omp parallel for if (USE_OMP)
 	for (int i = 0; i < src_rows; i++) {
 		for (int j = 0; j < src_cols; j++) {
 			if (src[i][j] <= d) dst[i][j] = 1;
 		}
 	}
+	t2 = omp_get_wtime();
+	printf("Dilation [%d, %d] : %gs\n", src_rows, src_cols, t2-t1);
 }
