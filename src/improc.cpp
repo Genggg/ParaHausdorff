@@ -100,8 +100,7 @@ void distTrans(double **src, int src_rows, int src_cols, double **dst) {
 	omp_set_num_threads(NUM_THREADS);
     t1 = omp_get_wtime();
 
-// #pragma omp parallel if (USE_OMP)
-// {	
+
 	/** Initialize distance map */
 	#pragma omp parallel for collapse(2) if (USE_OMP)
 	for (int i = 0; i < src_rows; i++) {
@@ -111,18 +110,73 @@ void distTrans(double **src, int src_rows, int src_cols, double **dst) {
 		}
 	}
 
+	t1 = omp_get_wtime();
 	/** First pass */
 	for (int k = 0; k <= src_rows + src_cols -2; k++) {
-		for (int i = min(k, src_rows-1); i >= 0 && k - i < src_cols; i--) {
+		int start;
+		int length;
+		int *index_i;
+		if (src_rows < src_cols) {
+			if (k < src_rows) {
+				length = k + 1;
+				start = k;
+			}
+			else if (k < src_cols) {
+				length = src_rows;
+				start = src_rows - 1;
+			}
+			else {
+				length = src_rows + src_cols - k - 1;
+				start = src_rows - 1;
+			}
+		}
+		else {
+			if (k < src_cols) {
+				length = k + 1;
+				start = k;
+			}
+			else if (k < src_rows) {
+				length = src_cols;
+				start = k;
+			}
+			else {
+				length = src_rows + src_cols - k - 1;
+				start = src_rows - 1;
+			}
+		}
+
+		index_i = new int[length];
+		for (int r = 0; r < length; r++)
+			index_i[r] = start--;
+		
+		#pragma omp parallel for if (USE_OMP)
+		for (int r = 0; r < length; r++) {
+			int i = index_i[r];
 			int j = k - i;
 			if (i == 0 && j == 0) continue;
 			else if (i == 0) dst[i][j] = min(dst[i][j], dst[i][j-1] + 1);
 			else if (j == 0) dst[i][j] = min(dst[i][j], dst[i-1][j] + 1);
 			else dst[i][j] = min(dst[i][j], min(dst[i][j-1], dst[i-1][j]) + 1);
 		}
+		
+		delete[] index_i;
+
+		// int length = min(k, src_rows-1);
+		// int index[length];
+		// // #pragma omp parallel for 
+		// for (int i = min(k, src_rows-1); i >= 0 && k - i < src_cols; i--) {
+		// 	int j = k - i;
+		// 	if (i == 0 && j == 0) continue;
+		// 	else if (i == 0) dst[i][j] = min(dst[i][j], dst[i][j-1] + 1);
+		// 	else if (j == 0) dst[i][j] = min(dst[i][j], dst[i-1][j] + 1);
+		// 	else dst[i][j] = min(dst[i][j], min(dst[i][j-1], dst[i-1][j]) + 1);
+		// }
 	}
+	t2 = omp_get_wtime();
+	printf("1st pass [%d, %d] : %gs\n", src_rows, src_cols, t2-t1);
 
 	/** Second pass */
+	t1 = omp_get_wtime();
 	for (int k = src_rows + src_cols - 2; k >= 0; k--) {
 		for (int j = min(k, src_cols-1); j >= 0 && k - j < src_rows; j--) {
 			int i = k - j;
@@ -132,9 +186,9 @@ void distTrans(double **src, int src_rows, int src_cols, double **dst) {
 			else dst[i][j] = min(dst[i][j], min(dst[i][j+1], dst[i+1][j]) + 1);
 		}
 	}
-// }
 	t2 = omp_get_wtime();
-	printf("DistTrans [%d, %d] : %gs\n", src_rows, src_cols, t2-t1);
+	printf("2nd pass [%d, %d] : %gs\n", src_rows, src_cols, t2-t1);
+	// printf("DistTrans [%d, %d] : %gs\n", src_rows, src_cols, t2-t1);
 }
 
 /**
@@ -149,7 +203,7 @@ void dilate(double **src, int src_rows, int src_cols, int d, double **dst) {
 	#pragma omp parallel for if (USE_OMP)
 	for (int i = 0; i < src_rows; i++) {
 		for (int j = 0; j < src_cols; j++) {
-			if (src[i][j] <= d) dst[i][j] = 1;
+			if (src[i][j] <= d) dst[i][j] = 255;
 		}
 	}
 	t2 = omp_get_wtime();

@@ -29,7 +29,7 @@ int main(int argc, char** argv)
 
 	/** Image dilation test */
 	double **dst2 = memAlloc2D(img_rows, img_cols);
-	dilate(dst1, img_rows, img_cols, 3, dst2);
+	dilate(dst1, img_rows, img_cols, 2, dst2);
 	Mat res2 = array2Img(dst2, img_rows, img_cols);
 	imwrite( "dilated_cell.jpg", res2);
 	
