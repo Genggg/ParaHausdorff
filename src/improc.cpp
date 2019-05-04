@@ -161,9 +161,6 @@ void distTrans(double **src, int src_rows, int src_cols, double **dst) {
 		
 		delete[] index_i;
 
-		// int length = min(k, src_rows-1);
-		// int index[length];
-		// // #pragma omp parallel for 
 		// for (int i = min(k, src_rows-1); i >= 0 && k - i < src_cols; i--) {
 		// 	int j = k - i;
 		// 	if (i == 0 && j == 0) continue;
@@ -178,13 +175,61 @@ void distTrans(double **src, int src_rows, int src_cols, double **dst) {
 	/** Second pass */
 	t1 = omp_get_wtime();
 	for (int k = src_rows + src_cols - 2; k >= 0; k--) {
-		for (int j = min(k, src_cols-1); j >= 0 && k - j < src_rows; j--) {
+		int start;
+		int length;
+		int *index_j;
+
+		if (src_rows < src_cols) {
+			if (k >= src_cols) {
+				length = src_rows + src_cols - k - 1;
+				start = src_cols - 1;
+			}
+			else if (k < src_rows) {
+				length = k + 1;
+				start = k;
+			}
+			else {
+				length = src_rows;
+				start = k;
+			}
+		}
+		else {
+			if (k >= src_rows) {
+				length = src_rows + src_cols - k - 1;
+				start = src_cols - 1;
+			}
+			else if (k < src_cols) {
+				length = k + 1;
+				start = k;
+			}
+			else {
+				length = src_cols;
+				start = src_cols - 1;
+			}
+		}
+		index_j = new int[length];
+		for (int r = 0; r < length; r++)
+			index_j[r] = start--;
+		
+		#pragma omp parallel for if (USE_OMP)
+		for (int r = 0; r < length; r++) {
+			int j = index_j[r];
 			int i = k - j;
 			if (i == src_rows - 1 && j == src_cols - 1) continue;
 			else if (i == src_rows - 1) dst[i][j] = min(dst[i][j], dst[i][j+1] + 1);
 			else if (j == src_cols - 1) dst[i][j] = min(dst[i][j], dst[i+1][j] + 1);
 			else dst[i][j] = min(dst[i][j], min(dst[i][j+1], dst[i+1][j]) + 1);
 		}
+
+		delete[] index_j;
+
+		// for (int j = min(k, src_cols-1); j >= 0 && k - j < src_rows; j--) {
+		// 	int i = k - j;
+		// 	if (i == src_rows - 1 && j == src_cols - 1) continue;
+		// 	else if (i == src_rows - 1) dst[i][j] = min(dst[i][j], dst[i][j+1] + 1);
+		// 	else if (j == src_cols - 1) dst[i][j] = min(dst[i][j], dst[i+1][j] + 1);
+		// 	else dst[i][j] = min(dst[i][j], min(dst[i][j+1], dst[i+1][j]) + 1);
+		// }
 	}
 	t2 = omp_get_wtime();
 	printf("2nd pass [%d, %d] : %gs\n", src_rows, src_cols, t2-t1);
