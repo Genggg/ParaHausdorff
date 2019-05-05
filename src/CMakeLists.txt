@@ -5,12 +5,9 @@ project(ParaHausdorffLibrary)
 
 
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-set(CUDA_NVCC_FLAGS
-    ${CUDA_NVCC_FLAGS};
-    -O3 -gencode arch=compute_22,code=sm_22
-    )
+set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -G -g ")
 
-add_library(ParaHausdorffLibrary improc.h improc.cpp gpukernels.cu gpukernels.h)
+cuda_add_library(ParaHausdorffLibrary improc.h improc.cpp gpukernels.cu gpukernels.h)
 
 set_target_properties(ParaHausdorffLibrary PROPERTIES LINKER_LANGUAGE CXX)
 set_target_properties(ParaHausdorffLibrary PROPERTIES CUDA_SEPARABLE_COMPILATION ON)

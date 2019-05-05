@@ -4,7 +4,7 @@
  * Creator: Yang Jiao
  * 
  * Created: 01:32 AM, May 3 2019
- * Last modified: 01:35 AM, May 3 2019
+ * Last modified: 02:15 AM, May 5 2019
  *
  * This is a header file for GPU kernels used in Hausdorff Matching.
  * 
@@ -24,6 +24,7 @@
 #define __GPUKERNELS_H
 
 #include <iostream>
+#include <cstdio>
 
 /**
  * 2D convolution on GPU (Global Memory Only)
@@ -39,7 +40,7 @@
  * @params[in] ker_rows the number of columns of `kernel`
  * @params[out] dst the result of the convolution
  */
-__global__ void convGPUGlobal (double **src, int src_rows, int src_cols, double **kernel, int ker_rows, int ker_cols, double **dst);
+__global__ void convGPUGlobal (double *src, int src_rows, int src_cols, double *kernel, int ker_rows, int ker_cols, double *dst);
 
 
 
