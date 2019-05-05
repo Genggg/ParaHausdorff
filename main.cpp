@@ -32,7 +32,6 @@ int main(int argc, char** argv)
 	dilate(dst1, img_rows, img_cols, 2, dst2);
 	Mat res2 = array2Img(dst2, img_rows, img_cols);
 	imwrite( "dilated_cell.jpg", res2);
-	
 
 	return 0;											
 }
