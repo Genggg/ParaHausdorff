@@ -4,15 +4,28 @@
 using namespace cv;
 using namespace std;
 
+// #define NORMAL_ALLOC
+
 /**
  * Allocate 2D memory on CPU
  */
+#ifdef NORMAL_ALLOC
 double** memAlloc2D(int rows, int cols) {
 	double **array = new double*[rows];
 	for (int i = 0; i < rows; ++i) 
     	array[i] = new double[cols];
 	return array;
 }
+#else
+double** memAlloc2D(int rows, int cols) {
+	double **array;
+	array = new double *[rows];
+	array[0] = new double [rows*cols];
+	for (int i = 0; i < rows; ++i) 
+    	array[i] = array[0] + i * cols;
+	return array;
+}
+#endif
 
 /**
  * Get a 2D Gaussian kernel
