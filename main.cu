@@ -9,7 +9,7 @@ using namespace std;
 
 int main(int argc, char** argv)
 {
-	/** Unified memory pointers */
+	
 	char* imageName = argv[1];
 	Mat image;
 	image = imread(imageName, 0);
@@ -85,14 +85,16 @@ int main(int argc, char** argv)
 	
 	cudaEventRecord(start, 0);
 	// No shared memory
-	convGPUGlobal<<< num_blocks, num_threads >>>
-	 (src, img_rows, img_cols, gauss_kernel, ker_rows, ker_cols, dstg);
+	for(int i = 0; i < 100; ++i){
+		convGPUGlobal<<< num_blocks, num_threads >>>
+		(src, img_rows, img_cols, gauss_kernel, ker_rows, ker_cols, dstg);
+	}
 	cudaEventRecord(stop, 0);
 	cudaEventSynchronize(stop);
 	fprintf(stdout, "Done Gaussian-Global on GPU.\n");
 	float elapsedTime;
 	cudaEventElapsedTime(&elapsedTime, start, stop); 
-	fprintf(stdout, "Time elapsed: %f ms\n", elapsedTime);
+	fprintf(stdout, "Time elapsed: %f ms\n", elapsedTime/100);
 
 	// Transfer the output to the CPU
 	fprintf(stdout, "Memory copy done.\n");

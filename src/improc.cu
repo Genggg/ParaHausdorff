@@ -115,7 +115,7 @@ void conv(double **src, int src_rows, int src_cols, double **kernel, int ker_row
 	}
 
 	t2 = omp_get_wtime();
-    printf("Convolution [%d, %d] : %gs\n", src_rows, src_cols, t2-t1);
+    printf("Convolution [%d, %d] : %f ms\n", src_rows, src_cols, (t2-t1)*1000);
 }
 
 /**
@@ -198,7 +198,7 @@ void distTrans(double **src, int src_rows, int src_cols, double **dst) {
 		// }
 	}
 	t2 = omp_get_wtime();
-	printf("1st pass [%d, %d] : %gs\n", src_rows, src_cols, t2-t1);
+	printf("1st pass [%d, %d] : %f ms\n", src_rows, src_cols, (t2-t1)*1000);
 
 	/** Second pass */
 	t1 = omp_get_wtime();
@@ -260,7 +260,7 @@ void distTrans(double **src, int src_rows, int src_cols, double **dst) {
 		// }
 	}
 	t2 = omp_get_wtime();
-	printf("2nd pass [%d, %d] : %gs\n", src_rows, src_cols, t2-t1);
+	printf("2nd pass [%d, %d] : %f ms.\n", src_rows, src_cols, (t2-t1)*1000);
 	// printf("DistTrans [%d, %d] : %gs\n", src_rows, src_cols, t2-t1);
 }
 
@@ -280,5 +280,5 @@ void dilate(double **src, int src_rows, int src_cols, int d, double **dst) {
 		}
 	}
 	t2 = omp_get_wtime();
-	printf("Dilation [%d, %d] : %gs\n", src_rows, src_cols, t2-t1);
+	printf("Dilation [%d, %d] : %f ms.\n", src_rows, src_cols, (t2-t1)*1000);
 }
