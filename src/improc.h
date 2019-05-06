@@ -33,7 +33,7 @@ Mat array2Img(double **src, int rows, int cols);
 void conv(double **src, int src_rows, int src_cols, double **kernel, int ker_rows, int ker_cols, double **dst);
 
 /**
- * Distance Transform
+ * Distance transform
  */
 void distTrans(double **src, int src_rows, int src_cols, double **dst);
 
@@ -41,5 +41,16 @@ void distTrans(double **src, int src_rows, int src_cols, double **dst);
  * Dilate the binary image based on its distance map
  */
 void dilate(double **src, int src_rows, int src_cols, int d, double **dst);
+
+
+/**
+ * Thresholding 
+ */
+
+void nonMaxSupression(double **src, int src_rows, int src_cols, int t_rows, int t_cols, double p, double **dst);
+
+/**
+ * Non-maximum supression
+ */
 
 #endif // __IMPROC_H
