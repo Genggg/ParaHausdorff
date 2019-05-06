@@ -5,6 +5,7 @@ using namespace cv;
 using namespace std;
 
 // #define NORMAL_ALLOC
+#define DEBUG
 
 /**
  * Allocate 2D memory on CPU
@@ -28,6 +29,18 @@ double** memAlloc2D(int rows, int cols) {
 #endif
 
 /**
+ * Allocate 2D unified memory
+ */
+double** cudaMallocManaged2D(int rows, int cols){
+	double **array;
+	cudaMallocManaged(&array, rows*sizeof(double*));
+    cudaMallocManaged(&array[0], rows*cols*sizeof(double));
+    for (unsigned i = 1; i < rows; ++i)
+		array[i] = array[0] + i*cols;
+	return array;
+}
+
+/**
  * Get a 2D Gaussian kernel
  */
 double** getGaussianKernel(int rows, int cols, double sigmax, double sigmay)
@@ -37,7 +50,7 @@ double** getGaussianKernel(int rows, int cols, double sigmax, double sigmay)
     Mat gauss_2d = gauss_x * gauss_y.t();
 	// cout << gauss_2d << endl << endl;
 
-	double **array = memAlloc2D(rows, cols);
+	double **array = cudaMallocManaged2D(rows, cols);
 	for (int i=0; i< rows; ++i) {
 		for (int j = 0; j < cols; j++) {
 			array[i][j] = gauss_2d.at<double>(i,j);
@@ -53,8 +66,10 @@ double** getGaussianKernel(int rows, int cols, double sigmax, double sigmay)
 double** img2Array(Mat img) {
 	int rows = img.rows;
 	int cols = img.cols;
-
-	double **array = memAlloc2D(rows, cols);
+	#ifdef DEBUG
+		cout << "Loading image using OpenCV" << endl;
+	#endif
+	double **array = cudaMallocManaged2D(rows, cols);
 	for (int i = 0; i < rows; i++) 
 		for (int j = 0; j < cols; j++) 
 			array[i][j] = (double)img.at<uchar>(i,j);

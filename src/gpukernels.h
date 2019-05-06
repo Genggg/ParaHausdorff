@@ -40,7 +40,7 @@
  * @params[in] ker_rows the number of columns of `kernel`
  * @params[out] dst the result of the convolution
  */
-__global__ void convGPUGlobal (double *src, int src_rows, int src_cols, double *kernel, int ker_rows, int ker_cols, double *dst);
+__global__ void convGPUGlobal (double **src, int src_rows, int src_cols, double **kernel, int ker_rows, int ker_cols, double **dst);
 
 
 

@@ -13,6 +13,11 @@ using namespace cv;
 double** memAlloc2D(int rows, int cols);
 
 /**
+ * Allocate 2D unified memory
+ */
+double** cudaMallocManaged2D(int rows, int cols);
+
+/**
  * Get a 2D Gaussian kernel
  */
 double** getGaussianKernel(int rows, int cols, double sigmax, double sigmay);
