@@ -280,10 +280,7 @@ void dilate(double **src, int src_rows, int src_cols, int d, double **dst) {
 		}
 	}
 	t2 = omp_get_wtime();
-<<<<<<< HEAD:src/improc.cu
 	printf("Dilation [%d, %d] : %f ms.\n", src_rows, src_cols, (t2-t1)*1000);
-=======
-	printf("Dilation [%d, %d] : %gs\n", src_rows, src_cols, t2-t1);
 }
 
 /**
@@ -343,5 +340,4 @@ void nonMaxSupression(double **src, int src_rows, int src_cols, int t_rows, int 
 	t2 = omp_get_wtime();
 	printf("NMS [%d, %d] : %gs\n", src_rows, src_cols, t2-t1);
 
->>>>>>> 955142f25f9ef6707b1daa8e3c2495a00a7c7a7c:src/improc.cpp
 }
