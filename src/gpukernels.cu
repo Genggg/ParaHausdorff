@@ -87,6 +87,7 @@ __global__ void convGPUGlobal (double **src, int src_rows, int src_cols, double 
         shared_kernel[threadIdx.y * ker_rows + threadIdx.x] = kernel[threadIdx.y][threadIdx.x];
     }
 
+
     // Find global Idx (in the image) of the head and tail of each block
     const int block_start_pix_col = blockIdx.x * MAX_2D_THREADS_PER_BLOCK;
     const int block_end_pix_col = block_start_pix_col + MAX_2D_THREADS_PER_BLOCK;
@@ -106,20 +107,23 @@ __global__ void convGPUGlobal (double **src, int src_rows, int src_cols, double 
     // Load the "padded" image into shared tile
     int local_id_col = threadIdx.x; // Local ID
     int pixel_id_col = tile_start_col + local_id_col; // Global Position
+    
     for(unsigned sub_block_num = 0; sub_block_num < num_sub_blocks; sub_block_num++){
         int local_id_row = threadIdx.y + sub_block_num * blockDim.y;
         int pixel_id_row = tile_start_row + local_id_row;
-        if(pixel_id_row >= 0 && pixel_id_row < src_rows 
-        && pixel_id_col >= 0 && pixel_id_col < src_cols){
-            shared_src[local_id_row * blockDim.x + local_id_col] = src[pixel_id_row][pixel_id_col];
-        }
-        else{
-            shared_src[local_id_row * blockDim.x + local_id_col] = 0.0;
+        if(local_id_col >= 0 && local_id_col < tile_cols
+        && local_id_row >= 0 && local_id_row < tile_rows){
+            if(pixel_id_row >= 0 && pixel_id_row < src_rows 
+            && pixel_id_col >= 0 && pixel_id_col < src_cols){
+                shared_src[local_id_row * blockDim.x + local_id_col] = src[pixel_id_row][pixel_id_col];
+            }
+            else{
+                shared_src[local_id_row * blockDim.x + local_id_col] = 0.0;
+            }
         }
     }
 
     __syncthreads();
-
     // Perform convolution
     local_id_col = threadIdx.x; // Local ID
     pixel_id_col = tile_start_col + local_id_col; // Global position (for output)
@@ -129,14 +133,15 @@ __global__ void convGPUGlobal (double **src, int src_rows, int src_cols, double 
         double sum = 0.0;
         // Make sure the output position is in a block (also only theses threads are enabled)
         if(pixel_id_row >= block_start_pix_row && pixel_id_row < block_src_end_pix_row 
-        && pixel_id_col >= block_start_pix_col && pixel_id_col < block_src_end_pix_col){
+        && pixel_id_col >= block_start_pix_col && pixel_id_col < block_src_end_pix_col
+        && local_id_col >= 0 && local_id_col < tile_cols && local_id_row >= 0 && local_id_row < tile_rows){
             for(int kernel_indy = -offset_rows; kernel_indy <= offset_rows; kernel_indy++){
                 for(int kernel_indx = -offset_cols; kernel_indx <= offset_cols; kernel_indx++){
                     // The "conv indices" will always be in the tile
                     int conv_indx = local_id_col + kernel_indx;
                     int conv_indy = local_id_row + kernel_indy;
-                    sum += shared_kernel[(offset_rows + conv_indy) * blockDim.x + (offset_cols + conv_indx)]
-                        * shared_src[conv_indy * ker_rows + conv_indx];
+                   sum += shared_kernel[(offset_rows + kernel_indy) * ker_rows + (offset_cols + kernel_indx)]
+                        * shared_src[conv_indy * blockDim.x + conv_indx];
                 }
             }
             // Save the result into global memory
@@ -144,7 +149,6 @@ __global__ void convGPUGlobal (double **src, int src_rows, int src_cols, double 
         }
 
     }
-
  }
 
 

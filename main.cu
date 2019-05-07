@@ -16,8 +16,8 @@ int main(int argc, char** argv)
 	image = imread(imageName, 0);
 	int img_rows = image.rows;
 	int img_cols = image.cols;
-	const int ker_rows = 5;
-	const int ker_cols = 5;
+	const int ker_rows = 15;
+	const int ker_cols = 15;
 	const int offset_rows = ker_rows / 2; // 3 -> 1, 4 -> 2, 5 -> 2, also the size of apron
     const int offset_cols = ker_cols / 2; // 3 -> 1, 4 -> 2, 5 -> 2
 	
@@ -130,16 +130,17 @@ int main(int argc, char** argv)
 	cudaEvent_t start_s, stop_s;
     cudaEventCreate(&start_s);
 	cudaEventCreate(&stop_s);
-
 	cudaEventRecord(start_s, 0);
+	for(int i = 0; i < 100; ++i){
 	convGPUShared<<< num_blocks_s, num_threads_s, TILE_BYTES + KERN_BYTES >>>
 		(src, img_rows, img_cols, gauss_kernel, ker_rows, ker_cols, dstgs);
-
+	}
 	cudaEventRecord(stop_s, 0);
 	cudaEventSynchronize(stop_s);
 	fprintf(stdout, "Done Gaussian-Shared on GPU.\n");
-	cudaEventElapsedTime(&elapsedTime, start_s, stop_s); 
-	fprintf(stdout, "Time elapsed: %f ms\n", elapsedTime);
+	float elapsedTime_g;
+	cudaEventElapsedTime(&elapsedTime_g, start_s, stop_s); 
+	fprintf(stdout, "Time elapsed: %f ms\n", elapsedTime_g/100);
 
 	cv::Mat resgs = array2Img(dstgs, img_rows, img_cols);
 	imwrite( "Smoothed_Image_GPUs.jpg", resgs);
