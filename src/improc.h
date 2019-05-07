@@ -2,6 +2,7 @@
 #define __IMPROC_H
 
 #include <iostream>
+#include <vector>
 #include <cmath>
 #include <omp.h>
 #include <opencv2/opencv.hpp>
@@ -49,13 +50,13 @@ void dilate(double **src, int src_rows, int src_cols, int d, double **dst);
 
 
 /**
- * Thresholding 
+ * Non maximum supression 
  */
 
 void nonMaxSupression(double **src, int src_rows, int src_cols, int t_rows, int t_cols, double p, double **dst);
 
-/**
- * Non-maximum supression
- */
+
+void drawBox(double **src, int src_rows, int src_cols, int t_rows, int t_cols, double **dst);
+
 
 #endif // __IMPROC_H

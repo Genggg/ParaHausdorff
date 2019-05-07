@@ -307,9 +307,9 @@ void nonMaxSupression(double **src, int src_rows, int src_cols, int t_rows, int 
 
 
 	int offset_x = t_rows / 2;
-	int offser_y = t_cols / 2;
+	int offset_y = t_cols / 2;
 	double threshold = global_max * p;
-
+	//std::vector<std::pair<int,int> > locs;
 	t1 = omp_get_wtime();
 	#pragma omp parallel for collapse(2) if (USE_OMP)
 	for (int x = 1; x < src_rows - 1; x++) {
@@ -325,7 +325,7 @@ void nonMaxSupression(double **src, int src_rows, int src_cols, int t_rows, int 
 				int local_sum = 0;
 				for (int r = x - offset_x; r <= x + offset_x; r++) {
 					if (r < 0 || r >= src_rows) continue;
-					for (int c = y - offser_y; c <= y + offser_y; c++) {
+					for (int c = y - offset_y; c <= y + offset_y; c++) {
 						if (c < 0 || c >= src_cols) continue;
 						if (local_max < src[r][c]) local_max = src[r][c];
 						local_sum += dst[r][c];
@@ -333,11 +333,40 @@ void nonMaxSupression(double **src, int src_rows, int src_cols, int t_rows, int 
 				}
 				if (src[x][y] == local_max && local_sum == 0) {
 					dst[x][y] = src[x][y];
+					printf("Detected (%d,%d)\n",x,y);
+					//pair<int,int> loc(x,y);
+					//locs.push_back(loc);
 				}
 			}
 		}
 	}
 	t2 = omp_get_wtime();
-	printf("NMS [%d, %d] : %gs\n", src_rows, src_cols, t2-t1);
+	printf("NMS [%d, %d] : %gms\n", src_rows, src_cols, (t2-t1)*1000);
+}
 
+
+void drawBox(double **src, int src_rows, int src_cols, int t_rows, int t_cols, double **dst){
+	double t1, t2;
+        double sizeGB = src_rows * src_cols * sizeof(double) / (1024.0 * 1024.0 * 1024.0);
+        //omp_set_num_threads(NUM_THREADS);
+	int offset_x = t_rows / 2;
+        int offset_y = t_cols / 2;
+
+	for (int x = 0; x < src_rows; x++) {
+		for (int y = 0; y < src_cols; y++) {
+			if (src[x][y] == 0) continue;
+			int top = max(x - offset_x, 0);
+			int buttom = min(x + offset_x, src_cols - 1);
+			int left = max(y - offset_y, 0);
+			int right = min(y + offset_y, src_rows - 1);
+			for (int j = left; j <= right; j++) {
+				dst[top][j] = 123;
+				dst[buttom][j] = 123;
+			}
+			for (int i = top; i <= buttom; i++) {
+                                dst[i][left] = 123;
+				dst[i][right] = 123;
+                        }
+		}
+	}
 }
