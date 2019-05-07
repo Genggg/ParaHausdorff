@@ -36,8 +36,6 @@ __global__ void convGPUGlobal (double **src, int src_rows, int src_cols, double 
     const int global_idy = threadIdx.y + blockIdx.y * blockDim.y;
 
     double sum = 0.0;
-    // double pixel_i = 0.0;
-
 
     // dst[global_idy][global_idx] = 0.0;
     if(global_idx < src_cols && global_idy < src_rows){
@@ -52,10 +50,7 @@ __global__ void convGPUGlobal (double **src, int src_rows, int src_cols, double 
                     //     printf("conv_indy = %d, conv_indx = %d.\n", conv_indy, conv_indx);
                     pixel_intensity = src[conv_indy][conv_indx];
                 }
-                int kernel_ind = (offset_cols + kernel_indx) * ker_cols + (offset_rows + kernel_indy);
-                // sum = kernel[0];
-                sum += kernel[offset_cols + kernel_indy][offset_rows + kernel_indx] 
-                        * pixel_intensity;
+                sum += kernel[offset_cols + kernel_indy][offset_rows + kernel_indx] * pixel_intensity;
             }
         }
 
@@ -76,22 +71,20 @@ __global__ void convGPUGlobal (double **src, int src_rows, int src_cols, double 
     const int offset_rows = ker_rows / 2; // 3 -> 1, 4 -> 2, 5 -> 2, also the size of apron
     const int offset_cols = ker_cols / 2; // 3 -> 1, 4 -> 2, 5 -> 2
     // In most situations ker_rows = ker_cols 
-    const int global_idx = threadIdx.x + blockIdx.x * blockDim.x;
-    const int global_idy = threadIdx.y + blockIdx.y * blockDim.y;
-
+    
     const int tile_rows = MAX_2D_THREADS_PER_BLOCK + 2*offset_rows; // Larger than blockDim.y
     const int tile_cols = MAX_2D_THREADS_PER_BLOCK + 2*offset_cols; // blockDim.x 
 
-    extern __shared__ double **s; // The whole chunk of shared memory
+    extern __shared__ double s[]; // The whole chunk of shared memory
 
-    double** shared_src = s;
-    double** shared_kernel = (double**)&shared_src[tile_rows][tile_cols];
+    double* shared_src = s;
+    double* shared_kernel = (double*)&shared_src[tile_rows * tile_cols];
 
     const int num_sub_blocks = (tile_rows + blockDim.y) / blockDim.y; // Number of sub-blocks
 
     // Filter size must smaller than 32 x 32
-    if(threadIdx.x < ker_rows && threadIdx.y < ker_cols){
-        shared_kernel[threadIdx.x][threadIdx.y] = kernel[threadIdx.x][threadIdx.y];
+    if(threadIdx.y < ker_rows && threadIdx.x < ker_cols){
+        shared_kernel[threadIdx.y * ker_rows + threadIdx.x] = kernel[threadIdx.y][threadIdx.x];
     }
 
     // Find global Idx (in the image) of the head and tail of each block
@@ -118,10 +111,10 @@ __global__ void convGPUGlobal (double **src, int src_rows, int src_cols, double 
         int pixel_id_row = tile_start_row + local_id_row;
         if(pixel_id_row >= 0 && pixel_id_row < src_rows 
         && pixel_id_col >= 0 && pixel_id_col < src_cols){
-            shared_src[local_id_row][local_id_col] = src[pixel_id_row][pixel_id_col];
+            shared_src[local_id_row * blockDim.x + local_id_col] = src[pixel_id_row][pixel_id_col];
         }
         else{
-            shared_src[local_id_row][local_id_col] = 0.0;
+            shared_src[local_id_row * blockDim.x + local_id_col] = 0.0;
         }
     }
 
@@ -142,8 +135,8 @@ __global__ void convGPUGlobal (double **src, int src_rows, int src_cols, double 
                     // The "conv indices" will always be in the tile
                     int conv_indx = local_id_col + kernel_indx;
                     int conv_indy = local_id_row + kernel_indy;
-                    sum += shared_kernel[offset_cols + conv_indy][offset_rows + conv_indx]
-                        * shared_src[conv_indy][conv_indx];
+                    sum += shared_kernel[(offset_rows + conv_indy) * blockDim.x + (offset_cols + conv_indx)]
+                        * shared_src[conv_indy * ker_rows + conv_indx];
                 }
             }
             // Save the result into global memory
