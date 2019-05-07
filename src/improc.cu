@@ -40,6 +40,24 @@ double** cudaMallocManaged2D(int rows, int cols){
 	return array;
 }
 
+
+/**
+ * Get a 1D Gaussian kernel
+ */
+ double* get1DGaussianKernel(int rows, double sigma)
+ {
+	 Mat gauss = cv::getGaussianKernel(rows, sigma, CV_64F);
+
+ 
+	 double *array;
+	 cudaMallocManaged(&array, rows*sizeof(double));
+	 for (int i=0; i< rows; ++i) {
+			array[i] = gauss.at<double>(i);
+	 }
+ 
+	 return array;
+ }
+
 /**
  * Get a 2D Gaussian kernel
  */

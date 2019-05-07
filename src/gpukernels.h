@@ -62,5 +62,18 @@ __global__ void convGPUGlobal (double **src, int src_rows, int src_cols, double 
  */
 __global__ void convGPUShared (double **src, int src_rows, int src_cols, double **kernel, int ker_rows, int ker_cols, double **dst);
 
+/**
+ * 1D column convolution on GPU (Shared Memory)
+ *
+ *
+ */
+ __global__ void convGPUCol (double **src, int src_rows, int src_cols, double *kernel_col, int ker_cols, double **dst);
+
+ /**
+ * 1D row convolution on GPU (Shared Memory)
+ *
+ *
+ */
+ __global__ void convGPURow (double **src, int src_rows, int src_cols, double *kernel_row, int ker_rows, double **dst);
 
 #endif 
