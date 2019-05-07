@@ -280,5 +280,68 @@ void dilate(double **src, int src_rows, int src_cols, int d, double **dst) {
 		}
 	}
 	t2 = omp_get_wtime();
+<<<<<<< HEAD:src/improc.cu
 	printf("Dilation [%d, %d] : %f ms.\n", src_rows, src_cols, (t2-t1)*1000);
+=======
+	printf("Dilation [%d, %d] : %gs\n", src_rows, src_cols, t2-t1);
+}
+
+/**
+ * Non maximum supression 
+ */
+
+void nonMaxSupression(double **src, int src_rows, int src_cols, int t_rows, int t_cols, double p, double **dst){
+	double t1, t2;
+	double sizeGB = src_rows * src_cols * sizeof(double) / (1024.0 * 1024.0 * 1024.0);
+	omp_set_num_threads(NUM_THREADS);
+    
+	/** Get the max */
+	double global_max = -1;
+	t1 = omp_get_wtime();
+	#pragma omp parallel for collapse(2) reduction(max:global_max) if (USE_OMP)
+	for (int x = 0; x < src_rows; x++) {
+		for (int y = 0; y < src_cols; y++) {
+			if (global_max < src[x][y])
+				global_max = src[x][y];
+		}
+	}
+	t2 = omp_get_wtime();
+	printf("Global max [%d, %d] : %gs\n", src_rows, src_cols, t2-t1);
+
+
+	int offset_x = t_rows / 2;
+	int offser_y = t_cols / 2;
+	double threshold = global_max * p;
+
+	t1 = omp_get_wtime();
+	#pragma omp parallel for collapse(2) if (USE_OMP)
+	for (int x = 1; x < src_rows - 1; x++) {
+		for (int y = 1; y < src_cols - 1; y++) {
+			/** Threshold and find local maximum */
+			if (src[x][y] >= threshold && 
+				src[x][y] >= src[x+1][y] && 
+				src[x][y] >= src[x-1][y] && 
+				src[x][y] >= src[x][y+1] && 
+				src[x][y] >= src[x][y-1]) {
+				/** Non maximum supression */
+				int local_max = -1;
+				int local_sum = 0;
+				for (int r = x - offset_x; r <= x + offset_x; r++) {
+					if (r < 0 || r >= src_rows) continue;
+					for (int c = y - offser_y; c <= y + offser_y; c++) {
+						if (c < 0 || c >= src_cols) continue;
+						if (local_max < src[r][c]) local_max = src[r][c];
+						local_sum += dst[r][c];
+					}
+				}
+				if (src[x][y] == local_max && local_sum == 0) {
+					dst[x][y] = src[x][y];
+				}
+			}
+		}
+	}
+	t2 = omp_get_wtime();
+	printf("NMS [%d, %d] : %gs\n", src_rows, src_cols, t2-t1);
+
+>>>>>>> 955142f25f9ef6707b1daa8e3c2495a00a7c7a7c:src/improc.cpp
 }
