@@ -40,9 +40,10 @@ $ make
 ```
 4. Modify the execution command in ```cuda.sh```, in which the following args are the paths of target image and template respectively.
 ```
-./main ../coins.jpg ../coin_T.png
+./main ../img/coins.jpg ../img/coin_T.png
 ```
 5. Submit the task and check the result
 ```
 $ sbatch cuda.sh
+$ cat run.out
 ```
