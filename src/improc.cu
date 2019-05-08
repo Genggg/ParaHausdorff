@@ -119,6 +119,78 @@ void conv(double **src, int src_rows, int src_cols, double **kernel, int ker_row
 }
 
 /**
+ * Double threshold
+ */
+void doubleThreshold (double **src, int src_rows, int src_cols, double lo, double hi, double **dst){
+	double t1, t2;
+
+	/** Compute gradient map, magnitude, and normalize the gradient*/
+	double gradientX[src_rows][src_cols];
+	double gradientY[src_rows][src_cols];
+	double gradientMag[src_rows][src_cols];
+	int peaks[src_rows][src_cols];
+
+	omp_set_num_threads(NUM_THREADS);
+    t1 = omp_get_wtime();
+	#pragma omp parallel for if (USE_OMP)
+	for (int i = 1; i < src_rows - 1; i++) {
+		for (int j = 1; j < src_cols - 1; j++) {
+			gradientX[i][j] = (src[i+1][j] - src[i-1][j]) / 255.0;
+			gradientY[i][j] = (src[i][j+1] - src[i][j-1]) / 255.0;
+			gradientMag[i][j] = sqrt(pow(gradientX[i][j],2) + pow(gradientY[i][j],2));
+			gradientX[i][j] /= gradientMag[i][j];
+			gradientY[i][j] /= gradientMag[i][j];
+		}
+	}
+	t2 = omp_get_wtime();
+	printf("Compute gradient map [%d, %d] : %f ms\n", src_rows, src_cols, (t2-t1)*1000);
+	
+
+	/** Find peaks and find strong edges and non-edge pixel*/
+	t1 = omp_get_wtime();
+	#pragma omp parallel for if (USE_OMP)
+	for (int i = 1; i < src_rows - 1; i++) {
+		for (int j = 1; j < src_cols - 1; j++) {
+			int forward_x = min(max(0, i + (int)round(gradientX[i][j])), src_rows-2);
+			int forward_y = min(max(0, j + (int)round(gradientY[i][j])), src_cols-2);
+			int backward_x = min(max(0, i - (int)round(gradientX[i][j])), src_rows-2);
+			int backward_y = min(max(0, j - (int)round(gradientY[i][j])), src_cols-2);
+			if (gradientMag[i][j] > gradientMag[forward_x][forward_y] && gradientMag[i][j] >= gradientMag[backward_x][backward_y] ||
+				gradientMag[i][j] >= gradientMag[forward_x][forward_y] && gradientMag[i][j] > gradientMag[backward_x][backward_y]) {
+					peaks[i][j] = 1;
+					if (gradientMag[i][j] >= hi) {
+						dst[i][j] = 255;
+						printf("Strong edge pixel (%d, %d)\n", i, j);
+					}
+					else if (gradientMag[i][j] < lo) dst[i][j] = 0;
+				}
+		}
+	}
+	t2 = omp_get_wtime();
+	printf("Find strong edge [%d, %d] : %f ms\n", src_rows, src_cols, (t2-t1)*1000);
+
+	/** Find weak edges*/
+	t1 = omp_get_wtime();
+	#pragma omp parallel for if (USE_OMP)
+	for (int i = 1; i < src_rows - 1; i++) {
+		for (int j = 1; j < src_cols - 1; j++) {
+			if (peaks[i][j] != 1 || dst[i][j] > 0) continue;
+			for (int r = -1; r <= 1; r++) {
+				for (int c = -1; c <= 1; c++) {
+					if (dst[i+r][j+c] == 255) {
+						dst[i][j] = 255;
+						printf("Weak edge pixel (%d, %d)\n", i, j);
+					}
+				}
+			}
+		}
+	}
+	t2 = omp_get_wtime();
+	printf("Find week edge [%d, %d] : %f ms\n", src_rows, src_cols, (t2-t1)*1000);
+
+}
+
+/**
  * Distance Transform
  */
 void distTrans(double **src, int src_rows, int src_cols, double **dst) {

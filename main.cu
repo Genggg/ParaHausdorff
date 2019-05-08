@@ -20,8 +20,8 @@ int main(int argc, char** argv)
 	const int img_cols = image.cols;
 	const int tmp_rows = templ.rows;
 	const int tmp_cols = templ.cols;
-	const int ker_rows = 15;
-	const int ker_cols = 15;
+	const int ker_rows = 5;
+	const int ker_cols = 5;
 	const int offset_rows = ker_rows / 2; // 3 -> 1, 4 -> 2, 5 -> 2, also the size of apron
 	const int offset_cols = ker_cols / 2; // 3 -> 1, 4 -> 2, 5 -> 2
 	
@@ -37,6 +37,14 @@ int main(int argc, char** argv)
 	conv(src, img_rows, img_cols, gauss_kernel, ker_rows, ker_cols, dst);
 	Mat res = array2Img(dst, img_rows, img_cols);
 	imwrite( "GaussFiltering_result.jpg", res);
+
+	/** Double threshold test */
+	double lo = 0.01;
+	double hi = 0.11;
+	double **dst_edge = cudaMallocManaged2D(img_rows, img_cols);
+	doubleThreshold(dst, img_rows, img_cols, lo, hi, dst_edge);
+	Mat res_edge = array2Img(dst_edge, img_rows, img_cols);
+	imwrite("edge_result.jpg", res_edge);
 
     /** Distance transform test */
 	double **dst1 = cudaMallocManaged2D(img_rows, img_cols);
