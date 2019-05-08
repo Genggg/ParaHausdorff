@@ -9,7 +9,6 @@
 
 ## Software Architecture
 
-### Flow Chart
 ![image](https://github.com/Genggg/ParaHausdorff/blob/master/flow.png)
 
 ### Dependencies
