@@ -25,6 +25,10 @@ int main(int argc, char** argv)
 	const int ker_cols = 15;
 	const int offset_rows = ker_rows / 2; // 3 -> 1, 4 -> 2, 5 -> 2, also the size of apron
 	const int offset_cols = ker_cols / 2; // 3 -> 1, 4 -> 2, 5 -> 2
+	const int ker_tmp_rows = 15;
+	const int ker_tmp_cols = 15;
+	const int offset_tmp_cols = ker_tmp_cols / 2;
+	const int offset_tmp_rows = ker_tmp_rows / 2;
 	
     /** Load the image using OpenCV */
 	double **src = img2Array(image);
@@ -178,14 +182,22 @@ int main(int argc, char** argv)
 	double **dstmpr = cudaMallocManaged2D(tmp_rows, tmp_cols);
 	double **dstmpc = cudaMallocManaged2D(tmp_rows, tmp_cols);
 
+	const unsigned tile_tmp_cols = MAX_2D_THREADS_PER_BLOCK + 2 * offset_tmp_cols;
+	const unsigned tile_tmp_rows = MAX_2D_THREADS_PER_BLOCK + 2 * offset_tmp_rows;
+
+	const int TILE_TEMP_COLS = sizeof(double) * tile_tmp_cols * num_threads_row;
+	const int TILE_TEMP_ROWS = sizeof(double) * tile_tmp_rows * num_threads_col;
+
+	const int KERN_TEMP_1D = sizeof(double) * ker_tmp_rows;
+
 	cudaEventCreate(&start_1d);
 	cudaEventCreate(&stop_1d);
 	cudaEventRecord(start_1d, 0);
 	for(int i = 0; i < 10; i++){
-		convGPUCol<<< num_blocks, num_threads, TILE_BYTES_COLS + KERN_BYTES_1D >>>
-				(T, tmp_rows, tmp_cols, gauss_1d_kernel, ker_cols, dstmpc);
-		convGPURow<<< num_blocks, num_threads, TILE_BYTES_ROWS + KERN_BYTES_1D >>>
-		(dstmpc, tmp_rows, tmp_cols, gauss_1d_kernel, ker_rows, dstmpr);
+		convGPUCol<<< num_blocks, num_threads, TILE_TEMP_COLS + KERN_TEMP_1D >>>
+				(T, tmp_rows, tmp_cols, gauss_1d_kernel, ker_tmp_cols, dstmpc);
+		convGPURow<<< num_blocks, num_threads, TILE_TEMP_ROWS + KERN_TEMP_1D >>>
+		(dstmpc, tmp_rows, tmp_cols, gauss_1d_kernel, ker_tmp_rows, dstmpr);
 	}
 	cudaEventRecord(stop_1d, 0);
 	cudaEventSynchronize(stop_1d);
@@ -207,14 +219,16 @@ int main(int argc, char** argv)
 	imwrite("edge_result.jpg", res_edge);
 
 	/** Double threshold on template */
+	// double lo_tmp = 0.015;
+	// double hi_tmp = 0.15;
 	double **edge_template = cudaMallocManaged2D(tmp_rows, tmp_cols);
 	doubleThreshold(dstmpr, tmp_rows, tmp_cols, lo, hi, edge_template);
-	Mat tmp_edge = array2Img(edge_template, img_rows, img_cols);
+	Mat tmp_edge = array2Img(edge_template, tmp_rows, tmp_cols);
 	imwrite("edge_template.jpg", tmp_edge);
 
     /** Distance transform test */
 	double **dist_map = cudaMallocManaged2D(img_rows, img_cols);
-	distTrans(src, img_rows, img_cols ,dist_map);
+	distTrans(edge_map, img_rows, img_cols ,dist_map);
 	Mat res_dist = array2Img(dist_map, img_rows, img_cols);
 	imwrite("distTrans_result.jpg", res_dist);
 
@@ -228,7 +242,7 @@ int main(int argc, char** argv)
 	
 	double **matched_map = cudaMallocManaged2D(img_rows, img_cols);
 	printf("Search matching on CPU ");
-	conv(dilated_img, img_rows, img_cols, T, tmp_rows, tmp_cols, matched_map);
+	conv(dilated_img, img_rows, img_cols, edge_template, tmp_rows, tmp_cols, matched_map);
 	Mat res_matched = array2Img(matched_map, img_rows, img_cols);
 	imwrite( "search_result.jpg", res_matched);
 	
@@ -239,11 +253,10 @@ int main(int argc, char** argv)
 	cudaEventRecord(start_s, 0);
 	for(int i = 0; i < 10; ++i){
 	convGPUShared<<< num_blocks_s, num_threads_s, TILE_BYTES + KERN_BYTES >>>
-		(src, img_rows, img_cols, T, tmp_rows, tmp_cols, matched_map);
+		(edge_map, img_rows, img_cols, T, tmp_rows, tmp_cols, matched_map);
 	}
 	cudaEventRecord(stop_s, 0);
 	cudaEventSynchronize(stop_s);
-	elapsedTime_g;
 	cudaEventElapsedTime(&elapsedTime_g, start_s, stop_s); 
 	fprintf(stdout, "Search matching on GPU: %f ms\n", elapsedTime_g/10);
 
@@ -251,9 +264,9 @@ int main(int argc, char** argv)
 	imwrite( "search_result.jpg", res_matched);
 
 	/** Non maximum supression test */
-	int t_rows = 10;
-	int t_cols = 10;
-	double p = 0.9;
+	int t_rows = tmp_rows;
+	int t_cols = tmp_cols;
+	double p = 0.75;
 	double **nms_map = memAlloc2D(img_rows, img_cols);
 	nonMaxSupression(matched_map, img_rows, img_cols, t_rows, t_cols, p, nms_map);
 	Mat res_nms = array2Img(nms_map, img_rows, img_cols);
