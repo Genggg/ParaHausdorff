@@ -8,8 +8,8 @@
 #### Geng Yang   geng_yang@brown.edu
 
 ## Software Architecture
+<img src="https://github.com/Genggg/ParaHausdorff/blob/master/flow.png" alt="drawing" width="300"/>
 
-![image](https://github.com/Genggg/ParaHausdorff/blob/master/flow.png =300x)
 
 ### Dependencies
 - OpenCV 3.4.1 (only for loading images)
