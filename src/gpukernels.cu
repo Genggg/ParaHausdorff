@@ -4,7 +4,7 @@
  * Creator: Yang Jiao
  * 
  * Created: 01:37 AM, May 3 2019
- * Last modified: 05:14 PM, May 5 2019
+ * Last modified: 1:51 PM, May 8 2019
  *
  * This is the source code for GPU kernels used in Hausdorff Matching.
  * 
@@ -301,4 +301,3 @@ __global__ void convGPUGlobal (double **src, int src_rows, int src_cols, double 
  }
 
 
- 

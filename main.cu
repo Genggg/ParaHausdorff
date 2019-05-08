@@ -174,6 +174,28 @@ int main(int argc, char** argv)
 	cv::Mat resg1d = array2Img(dstgr, img_rows, img_cols);
 	imwrite( "Smoothed_Image_GPUs-1d.jpg", resg1d);
 
+	/** Gaussian filtering of template */
+	double **dstmpr = cudaMallocManaged2D(tmp_rows, tmp_cols);
+	double **dstmpc = cudaMallocManaged2D(tmp_rows, tmp_cols);
+
+	cudaEventCreate(&start_1d);
+	cudaEventCreate(&stop_1d);
+	cudaEventRecord(start_1d, 0);
+	for(int i = 0; i < 10; i++){
+		convGPUCol<<< num_blocks, num_threads, TILE_BYTES_COLS + KERN_BYTES_1D >>>
+				(T, tmp_rows, tmp_cols, gauss_1d_kernel, ker_cols, dstmpc);
+		convGPURow<<< num_blocks, num_threads, TILE_BYTES_ROWS + KERN_BYTES_1D >>>
+		(dstmpc, tmp_rows, tmp_cols, gauss_1d_kernel, ker_rows, dstmpr);
+	}
+	cudaEventRecord(stop_1d, 0);
+	cudaEventSynchronize(stop_1d);
+	fprintf(stdout, "Done Seperate Gaussian-Shared on template[%d, %d].\n", tmp_rows, tmp_cols);
+	cudaEventElapsedTime(&elapsedTime_1d, start_1d, stop_1d); 
+	fprintf(stdout, "Time elapsed: %f ms\n", elapsedTime_1d/10);
+	cv::Mat restmp = array2Img(dstmpr, tmp_rows, tmp_cols);
+	imwrite( "Smoothed_Image_GPUs-T.jpg", restmp);
+
+
 
 
 	/** Double threshold test */
@@ -183,6 +205,12 @@ int main(int argc, char** argv)
 	doubleThreshold(dstgr, img_rows, img_cols, lo, hi, edge_map);
 	Mat res_edge = array2Img(edge_map, img_rows, img_cols);
 	imwrite("edge_result.jpg", res_edge);
+
+	/** Double threshold on template */
+	double **edge_template = cudaMallocManaged2D(tmp_rows, tmp_cols);
+	doubleThreshold(dstmpr, tmp_rows, tmp_cols, lo, hi, edge_template);
+	Mat tmp_edge = array2Img(edge_template, img_rows, img_cols);
+	imwrite("edge_template.jpg", tmp_edge);
 
     /** Distance transform test */
 	double **dist_map = cudaMallocManaged2D(img_rows, img_cols);
