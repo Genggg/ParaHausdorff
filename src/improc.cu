@@ -137,6 +137,78 @@ void conv(double **src, int src_rows, int src_cols, double **kernel, int ker_row
 }
 
 /**
+ * Double threshold
+ */
+void doubleThreshold (double **src, int src_rows, int src_cols, double lo, double hi, double **dst){
+	double t1, t2;
+
+	/** Compute gradient map, magnitude, and normalize the gradient*/
+	double gradientX[src_rows][src_cols];
+	double gradientY[src_rows][src_cols];
+	double gradientMag[src_rows][src_cols];
+	int peaks[src_rows][src_cols];
+
+	omp_set_num_threads(NUM_THREADS);
+    t1 = omp_get_wtime();
+	#pragma omp parallel for if (USE_OMP)
+	for (int i = 1; i < src_rows - 1; i++) {
+		for (int j = 1; j < src_cols - 1; j++) {
+			gradientX[i][j] = (src[i+1][j] - src[i-1][j]) / 255.0;
+			gradientY[i][j] = (src[i][j+1] - src[i][j-1]) / 255.0;
+			gradientMag[i][j] = sqrt(pow(gradientX[i][j],2) + pow(gradientY[i][j],2));
+			gradientX[i][j] /= gradientMag[i][j];
+			gradientY[i][j] /= gradientMag[i][j];
+		}
+	}
+	t2 = omp_get_wtime();
+	printf("Compute gradient map [%d, %d] : %f ms\n", src_rows, src_cols, (t2-t1)*1000);
+	
+
+	/** Find peaks and find strong edges and non-edge pixel*/
+	t1 = omp_get_wtime();
+	#pragma omp parallel for if (USE_OMP)
+	for (int i = 1; i < src_rows - 1; i++) {
+		for (int j = 1; j < src_cols - 1; j++) {
+			int forward_x = min(max(0, i + (int)round(gradientX[i][j])), src_rows-2);
+			int forward_y = min(max(0, j + (int)round(gradientY[i][j])), src_cols-2);
+			int backward_x = min(max(0, i - (int)round(gradientX[i][j])), src_rows-2);
+			int backward_y = min(max(0, j - (int)round(gradientY[i][j])), src_cols-2);
+			if (gradientMag[i][j] > gradientMag[forward_x][forward_y] && gradientMag[i][j] >= gradientMag[backward_x][backward_y] ||
+				gradientMag[i][j] >= gradientMag[forward_x][forward_y] && gradientMag[i][j] > gradientMag[backward_x][backward_y]) {
+					peaks[i][j] = 1;
+					if (gradientMag[i][j] >= hi) {
+						dst[i][j] = 255;
+						// printf("Strong edge pixel (%d, %d)\n", i, j);
+					}
+					else if (gradientMag[i][j] < lo) dst[i][j] = 0;
+				}
+		}
+	}
+	t2 = omp_get_wtime();
+	printf("Find strong edge [%d, %d] : %f ms\n", src_rows, src_cols, (t2-t1)*1000);
+
+	/** Find weak edges*/
+	t1 = omp_get_wtime();
+	#pragma omp parallel for if (USE_OMP)
+	for (int i = 1; i < src_rows - 1; i++) {
+		for (int j = 1; j < src_cols - 1; j++) {
+			if (peaks[i][j] != 1 || dst[i][j] > 0) continue;
+			for (int r = -1; r <= 1; r++) {
+				for (int c = -1; c <= 1; c++) {
+					if (dst[i+r][j+c] == 255) {
+						dst[i][j] = 255;
+						// printf("Weak edge pixel (%d, %d)\n", i, j);
+					}
+				}
+			}
+		}
+	}
+	t2 = omp_get_wtime();
+	printf("Find weak edge [%d, %d] : %f ms\n", src_rows, src_cols, (t2-t1)*1000);
+
+}
+
+/**
  * Distance Transform
  */
 void distTrans(double **src, int src_rows, int src_cols, double **dst) {
@@ -206,20 +278,9 @@ void distTrans(double **src, int src_rows, int src_cols, double **dst) {
 		}
 		
 		delete[] index_i;
-
-		// for (int i = min(k, src_rows-1); i >= 0 && k - i < src_cols; i--) {
-		// 	int j = k - i;
-		// 	if (i == 0 && j == 0) continue;
-		// 	else if (i == 0) dst[i][j] = min(dst[i][j], dst[i][j-1] + 1);
-		// 	else if (j == 0) dst[i][j] = min(dst[i][j], dst[i-1][j] + 1);
-		// 	else dst[i][j] = min(dst[i][j], min(dst[i][j-1], dst[i-1][j]) + 1);
-		// }
 	}
-	t2 = omp_get_wtime();
-	printf("1st pass [%d, %d] : %f ms\n", src_rows, src_cols, (t2-t1)*1000);
 
 	/** Second pass */
-	t1 = omp_get_wtime();
 	for (int k = src_rows + src_cols - 2; k >= 0; k--) {
 		int start;
 		int length;
@@ -268,18 +329,10 @@ void distTrans(double **src, int src_rows, int src_cols, double **dst) {
 		}
 
 		delete[] index_j;
-
-		// for (int j = min(k, src_cols-1); j >= 0 && k - j < src_rows; j--) {
-		// 	int i = k - j;
-		// 	if (i == src_rows - 1 && j == src_cols - 1) continue;
-		// 	else if (i == src_rows - 1) dst[i][j] = min(dst[i][j], dst[i][j+1] + 1);
-		// 	else if (j == src_cols - 1) dst[i][j] = min(dst[i][j], dst[i+1][j] + 1);
-		// 	else dst[i][j] = min(dst[i][j], min(dst[i][j+1], dst[i+1][j]) + 1);
-		// }
 	}
 	t2 = omp_get_wtime();
-	printf("2nd pass [%d, %d] : %f ms.\n", src_rows, src_cols, (t2-t1)*1000);
-	// printf("DistTrans [%d, %d] : %gs\n", src_rows, src_cols, t2-t1);
+	
+	printf("DistTrans [%d, %d] : %gms\n", src_rows, src_cols, (t2-t1)*1000);
 }
 
 /**
@@ -298,7 +351,6 @@ void dilate(double **src, int src_rows, int src_cols, int d, double **dst) {
 		}
 	}
 	t2 = omp_get_wtime();
-
 	printf("Dilation [%d, %d] : %f ms\n", src_rows, src_cols, (t2-t1)*1000);
 }
 
@@ -321,15 +373,11 @@ void nonMaxSupression(double **src, int src_rows, int src_cols, int t_rows, int 
 				global_max = src[x][y];
 		}
 	}
-	t2 = omp_get_wtime();
-	printf("Global max [%d, %d] : %f ms\n", src_rows, src_cols, (t2-t1)*1000);
 
 
 	int offset_x = t_rows / 2;
-	int offser_y = t_cols / 2;
+	int offset_y = t_cols / 2;
 	double threshold = global_max * p;
-
-	t1 = omp_get_wtime();
 	#pragma omp parallel for collapse(2) if (USE_OMP)
 	for (int x = 1; x < src_rows - 1; x++) {
 		for (int y = 1; y < src_cols - 1; y++) {
@@ -344,7 +392,7 @@ void nonMaxSupression(double **src, int src_rows, int src_cols, int t_rows, int 
 				int local_sum = 0;
 				for (int r = x - offset_x; r <= x + offset_x; r++) {
 					if (r < 0 || r >= src_rows) continue;
-					for (int c = y - offser_y; c <= y + offser_y; c++) {
+					for (int c = y - offset_y; c <= y + offset_y; c++) {
 						if (c < 0 || c >= src_cols) continue;
 						if (local_max < src[r][c]) local_max = src[r][c];
 						local_sum += dst[r][c];
@@ -357,7 +405,47 @@ void nonMaxSupression(double **src, int src_rows, int src_cols, int t_rows, int 
 		}
 	}
 	t2 = omp_get_wtime();
-	printf("NMS [%d, %d] : %f ms\n", src_rows, src_cols, (t2-t1)*1000);
+
+	printf("Non maximum supression [%d, %d] : %gms\n", src_rows, src_cols, (t2-t1)*1000);
+}
 
 
+void drawBox(double **src, int src_rows, int src_cols, int t_rows, int t_cols, Mat &img_rgb){
+	double t1, t2;
+    double sizeGB = src_rows * src_cols * sizeof(double) / (1024.0 * 1024.0 * 1024.0);
+    //omp_set_num_threads(NUM_THREADS);
+	int offset_x = t_rows / 2;
+        int offset_y = t_cols / 2;
+
+	for (int x = 0; x < src_rows; x++) {
+		for (int y = 0; y < src_cols; y++) {
+			if (src[x][y] == 0) continue;
+			int top = max(x - offset_x, 0);
+			int buttom = min(x + offset_x, src_cols - 1);
+			int left = max(y - offset_y, 0);
+			int right = min(y + offset_y, src_rows - 1);
+			for (int j = left; j <= right; j++) {
+				img_rgb.at<Vec3b>(top, j) = Vec3b(0,0,255);
+				img_rgb.at<Vec3b>(buttom, j) = Vec3b(0,0,255);
+				// img_rgb.at<Vec3b>(top, j)[0] = 255;
+				// img_rgb.at<Vec3b>(top, j)[1] = 0;
+				// img_rgb.at<Vec3b>(top, j)[2] = 0;
+				// img_rgb.at<Vec3b>(buttom, j)[0] = 255;
+				// img_rgb.at<Vec3b>(buttom, j)[0] = 0;
+				// img_rgb.at<Vec3b>(buttom, j)[0] = 0;
+				// cout << img_rgb.at<Vec3b>(buttom, j);
+			}
+			for (int i = top; i <= buttom; i++) {
+				img_rgb.at<Vec3b>(i, left) = Vec3b(0,0,255);
+				img_rgb.at<Vec3b>(i, right) = Vec3b(0,0,255);
+
+				// img_rgb.at<Vec3b>(i, left)[0] = 255;
+				// img_rgb.at<Vec3b>(i, left)[1] = 0;
+				// img_rgb.at<Vec3b>(i, left)[2] = 0;
+				// img_rgb.at<Vec3b>(i, right)[0] = 255;
+				// img_rgb.at<Vec3b>(i, right)[0] = 0;
+				// img_rgb.at<Vec3b>(i, right)[0] = 0;
+            }
+		}
+	}
 }
