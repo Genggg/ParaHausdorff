@@ -12,18 +12,22 @@ int main(int argc, char** argv)
 {
 	
 	char* imageName = argv[1];
-	Mat image;
-	image = imread(imageName, 0);
-	int img_rows = image.rows;
-	int img_cols = image.cols;
-	const int ker_rows = 15;
-	const int ker_cols = 15;
+	char* templName = argv[2];
+	Mat image = imread(imageName, 0);
+	Mat templ = imread(templName, 0);
+
+	const int img_rows = image.rows;
+	const int img_cols = image.cols;
+	const int tmp_rows = templ.rows;
+	const int tmp_cols = templ.cols;
+	const int ker_rows = 5;
+	const int ker_cols = 5;
 	const int offset_rows = ker_rows / 2; // 3 -> 1, 4 -> 2, 5 -> 2, also the size of apron
-    const int offset_cols = ker_cols / 2; // 3 -> 1, 4 -> 2, 5 -> 2
+	const int offset_cols = ker_cols / 2; // 3 -> 1, 4 -> 2, 5 -> 2
 	
     /** Load the image using OpenCV */
 	double **src = img2Array(image);
-
+	double **T = img2Array(templ);
 
 	/** Gaussian filtering test */
 	double **dst = cudaMallocManaged2D(img_rows, img_cols);
@@ -32,28 +36,48 @@ int main(int argc, char** argv)
 
 	conv(src, img_rows, img_cols, gauss_kernel, ker_rows, ker_cols, dst);
 	Mat res = array2Img(dst, img_rows, img_cols);
-	imwrite( "Smoothed_Image.jpg", res);
+	imwrite( "GaussFiltering_result.jpg", res);
+
+	/** Double threshold test */
+	double lo = 0.01;
+	double hi = 0.11;
+	double **dst_edge = cudaMallocManaged2D(img_rows, img_cols);
+	doubleThreshold(dst, img_rows, img_cols, lo, hi, dst_edge);
+	Mat res_edge = array2Img(dst_edge, img_rows, img_cols);
+	imwrite("edge_result.jpg", res_edge);
 
     /** Distance transform test */
 	double **dst1 = cudaMallocManaged2D(img_rows, img_cols);
-    distTrans(src, img_rows, img_cols ,dst1);
-    Mat res1 = array2Img(dst1, img_rows, img_cols);
-	imwrite( "cell_distance.jpg", res1);
+	distTrans(src, img_rows, img_cols ,dst1);
+	Mat res1 = array2Img(dst1, img_rows, img_cols);
+	imwrite( "distTrans_result.jpg", res1);
 
 	/** Image dilation test */
 	double **dst2 = cudaMallocManaged2D(img_rows, img_cols);
 	dilate(dst1, img_rows, img_cols, 2, dst2);
 	Mat res2 = array2Img(dst2, img_rows, img_cols);
-	imwrite( "dilated_cell.jpg", res2);
+	imwrite( "dilation_result.jpg", res2);
+
+	/** Search matching test*/
+	
+	double **dst3 = cudaMallocManaged2D(img_rows, img_cols);
+	conv(dst2, img_rows, img_cols, T, tmp_rows, tmp_cols, dst3);
+	Mat res3 = array2Img(dst3, img_rows, img_cols);
+	imwrite( "search_result.jpg", res3);
 
 	/** Non maximum supression test */
 	int t_rows = 10;
 	int t_cols = 10;
 	double p = 0.9;
-	double **dst3 = memAlloc2D(img_rows, img_cols);
-	nonMaxSupression(dst2, img_rows, img_cols, t_rows, t_cols, p, dst3);
-	Mat res3 = array2Img(dst3, img_rows, img_cols);
-	imwrite( "nms_cell.jpg", res3);
+	double **dst4 = memAlloc2D(img_rows, img_cols);
+	nonMaxSupression(dst3, img_rows, img_cols, t_rows, t_cols, p, dst4);
+	Mat res4 = array2Img(dst4, img_rows, img_cols);
+	imwrite( "nms_result.jpg", res4);
+
+	/** Draw the matched result*/
+	drawBox(dst4, img_rows, img_cols, tmp_rows, tmp_cols, src);
+	Mat res5 = array2Img(src, img_rows, img_cols);
+	imwrite("final_result.jpg",res5);
 	
 	/** Test on the GPU Gaussian Filtering Kernel on Global Memory */ 
 

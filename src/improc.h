@@ -2,6 +2,7 @@
 #define __IMPROC_H
 
 #include <iostream>
+#include <vector>
 #include <cmath>
 #include <omp.h>
 #include <opencv2/opencv.hpp>
@@ -43,6 +44,11 @@ Mat array2Img(double **src, int rows, int cols);
 void conv(double **src, int src_rows, int src_cols, double **kernel, int ker_rows, int ker_cols, double **dst);
 
 /**
+ * Double threshold
+ */
+void doubleThreshold (double **src, int src_rows, int src_cols, double lo, double hi, double **dst);
+
+/**
  * Distance transform
  */
 void distTrans(double **src, int src_rows, int src_cols, double **dst);
@@ -54,13 +60,15 @@ void dilate(double **src, int src_rows, int src_cols, int d, double **dst);
 
 
 /**
- * Thresholding 
+ * Non maximum supression 
  */
 
 void nonMaxSupression(double **src, int src_rows, int src_cols, int t_rows, int t_cols, double p, double **dst);
 
 /**
- * Non-maximum supression
+ * Draw a box for the matched region
  */
+void drawBox(double **src, int src_rows, int src_cols, int t_rows, int t_cols, double **dst);
+
 
 #endif // __IMPROC_H
