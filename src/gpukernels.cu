@@ -46,8 +46,6 @@ __global__ void convGPUGlobal (double **src, int src_rows, int src_cols, double 
                 int conv_indy = global_idy+kernel_indy;
                 if(conv_indx >= 0 && conv_indx < src_cols && 
                 conv_indy >= 0 && conv_indy < src_rows){
-                    // if(threadIdx.x == 13 && threadIdx.y == 16 && blockIdx.x == 1 && blockIdx.y == 3)
-                    //     printf("conv_indy = %d, conv_indx = %d.\n", conv_indy, conv_indx);
                     pixel_intensity = src[conv_indy][conv_indx];
                 }
                 sum += kernel[offset_cols + kernel_indy][offset_rows + kernel_indx] * pixel_intensity;
@@ -154,7 +152,6 @@ __global__ void convGPUGlobal (double **src, int src_rows, int src_cols, double 
  __global__ void convGPUCol (double **src, int src_rows, int src_cols, double *kernel_col, int ker_cols, double **dst){
     const int offset_cols = ker_cols / 2; // 3 -> 1, 4 -> 2, 5 -> 2 Only cols
 
-
     const int tile_cols = MAX_2D_THREADS_PER_BLOCK + 2*offset_cols; 
     
     extern __shared__ double s[]; // The whole chunk of shared memory
@@ -191,15 +188,16 @@ __global__ void convGPUGlobal (double **src, int src_rows, int src_cols, double 
         if(local_id_col >= 0 && local_id_col < tile_cols){
             if(pixel_id_row >= 0 && pixel_id_row < src_rows 
             && pixel_id_col >= 0 && pixel_id_col < src_cols){
-                shared_src[local_id_row * blockDim.x + local_id_col] = src[pixel_id_row][pixel_id_col];
+                shared_src[local_id_row * tile_cols + local_id_col] = src[pixel_id_row][pixel_id_col];
             }
             else{
-                shared_src[local_id_row * blockDim.x + local_id_col] = 0.0;
+                shared_src[local_id_row * tile_cols + local_id_col] = 0.0;
             }
         }
     }
 
     __syncthreads();
+
 
     // Perform convolution
     local_id_row = threadIdx.y; // Local ID
@@ -215,7 +213,7 @@ __global__ void convGPUGlobal (double **src, int src_rows, int src_cols, double 
                  // The "conv indices" will always be in the tile
                  int conv_indx = local_id_col + kernel_indx;
                  sum += shared_kernel[offset_cols + kernel_indx]
-                      * shared_src[local_id_row * blockDim.x + conv_indx];
+                      * shared_src[local_id_row * tile_cols + conv_indx];
             }
 
             dst[pixel_id_row][pixel_id_col] = sum;
@@ -232,7 +230,6 @@ __global__ void convGPUGlobal (double **src, int src_rows, int src_cols, double 
  */
  __global__ void convGPURow (double **src, int src_rows, int src_cols, double *kernel_row, int ker_rows, double **dst){
     const int offset_rows = ker_rows / 2; // 3 -> 1, 4 -> 2, 5 -> 2 Only rows
-
 
     const int tile_rows = MAX_2D_THREADS_PER_BLOCK + 2*offset_rows; 
     
