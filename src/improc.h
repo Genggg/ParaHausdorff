@@ -68,7 +68,7 @@ void nonMaxSupression(double **src, int src_rows, int src_cols, int t_rows, int 
 /**
  * Draw a box for the matched region
  */
-void drawBox(double **src, int src_rows, int src_cols, int t_rows, int t_cols, double **dst);
+void drawBox(double **src, int src_rows, int src_cols, int t_rows, int t_cols, Mat &img_rgb);
 
 
 #endif // __IMPROC_H

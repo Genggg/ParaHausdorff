@@ -13,6 +13,7 @@ int main(int argc, char** argv)
 	
 	char* imageName = argv[1];
 	char* templName = argv[2];
+	Mat image_rgb = imread(imageName, 1);
 	Mat image = imread(imageName, 0);
 	Mat templ = imread(templName, 0);
 
@@ -20,8 +21,8 @@ int main(int argc, char** argv)
 	const int img_cols = image.cols;
 	const int tmp_rows = templ.rows;
 	const int tmp_cols = templ.cols;
-	const int ker_rows = 5;
-	const int ker_cols = 5;
+	const int ker_rows = 15;
+	const int ker_cols = 15;
 	const int offset_rows = ker_rows / 2; // 3 -> 1, 4 -> 2, 5 -> 2, also the size of apron
 	const int offset_cols = ker_cols / 2; // 3 -> 1, 4 -> 2, 5 -> 2
 	
@@ -29,55 +30,14 @@ int main(int argc, char** argv)
 	double **src = img2Array(image);
 	double **T = img2Array(templ);
 
-	/** Gaussian filtering test */
-	double **dst = cudaMallocManaged2D(img_rows, img_cols);
+	/** Gaussian filtering on CPU test */
+	double **smoothed_img = cudaMallocManaged2D(img_rows, img_cols);
 	double **gauss_kernel = getGaussianKernel(ker_rows,ker_cols,2,2);
 
 
-	conv(src, img_rows, img_cols, gauss_kernel, ker_rows, ker_cols, dst);
-	Mat res = array2Img(dst, img_rows, img_cols);
-	imwrite( "GaussFiltering_result.jpg", res);
-
-	/** Double threshold test */
-	double lo = 0.01;
-	double hi = 0.11;
-	double **dst_edge = cudaMallocManaged2D(img_rows, img_cols);
-	doubleThreshold(dst, img_rows, img_cols, lo, hi, dst_edge);
-	Mat res_edge = array2Img(dst_edge, img_rows, img_cols);
-	imwrite("edge_result.jpg", res_edge);
-
-    /** Distance transform test */
-	double **dst1 = cudaMallocManaged2D(img_rows, img_cols);
-	distTrans(src, img_rows, img_cols ,dst1);
-	Mat res1 = array2Img(dst1, img_rows, img_cols);
-	imwrite( "distTrans_result.jpg", res1);
-
-	/** Image dilation test */
-	double **dst2 = cudaMallocManaged2D(img_rows, img_cols);
-	dilate(dst1, img_rows, img_cols, 2, dst2);
-	Mat res2 = array2Img(dst2, img_rows, img_cols);
-	imwrite( "dilation_result.jpg", res2);
-
-	/** Search matching test*/
-	
-	double **dst3 = cudaMallocManaged2D(img_rows, img_cols);
-	conv(dst2, img_rows, img_cols, T, tmp_rows, tmp_cols, dst3);
-	Mat res3 = array2Img(dst3, img_rows, img_cols);
-	imwrite( "search_result.jpg", res3);
-
-	/** Non maximum supression test */
-	int t_rows = 10;
-	int t_cols = 10;
-	double p = 0.9;
-	double **dst4 = memAlloc2D(img_rows, img_cols);
-	nonMaxSupression(dst3, img_rows, img_cols, t_rows, t_cols, p, dst4);
-	Mat res4 = array2Img(dst4, img_rows, img_cols);
-	imwrite( "nms_result.jpg", res4);
-
-	/** Draw the matched result*/
-	drawBox(dst4, img_rows, img_cols, tmp_rows, tmp_cols, src);
-	Mat res5 = array2Img(src, img_rows, img_cols);
-	imwrite("final_result.jpg",res5);
+	conv(src, img_rows, img_cols, gauss_kernel, ker_rows, ker_cols, smoothed_img);
+	Mat res_smoothed = array2Img(smoothed_img, img_rows, img_cols);
+	imwrite( "GaussFiltering_result.jpg", res_smoothed);
 	
 	/** Test on the GPU Gaussian Filtering Kernel on Global Memory */ 
 
@@ -164,7 +124,7 @@ int main(int argc, char** argv)
     cudaEventCreate(&start_s);
 	cudaEventCreate(&stop_s);
 	cudaEventRecord(start_s, 0);
-	for(int i = 0; i < 100; ++i){
+	for(int i = 0; i < 10; ++i){
 	convGPUShared<<< num_blocks_s, num_threads_s, TILE_BYTES + KERN_BYTES >>>
 		(src, img_rows, img_cols, gauss_kernel, ker_rows, ker_cols, dstgs);
 	}
@@ -173,7 +133,7 @@ int main(int argc, char** argv)
 	fprintf(stdout, "Done Gaussian-Shared on GPU.\n");
 	float elapsedTime_g;
 	cudaEventElapsedTime(&elapsedTime_g, start_s, stop_s); 
-	fprintf(stdout, "Time elapsed: %f ms\n", elapsedTime_g/100);
+	fprintf(stdout, "Time elapsed: %f ms\n", elapsedTime_g/10);
 
 	cv::Mat resgs = array2Img(dstgs, img_rows, img_cols);
 	imwrite( "Smoothed_Image_GPUs.jpg", resgs);
@@ -197,7 +157,7 @@ int main(int argc, char** argv)
     cudaEventCreate(&start_1d);
 	cudaEventCreate(&stop_1d);
 	cudaEventRecord(start_1d, 0);
-	for(int i = 0; i < 100; ++i){
+	for(int i = 0; i < 10; ++i){
 		convGPUCol<<< num_blocks, num_threads, TILE_BYTES_COLS + KERN_BYTES_1D >>>
 			(src, img_rows, img_cols, gauss_1d_kernel, ker_cols, dstgc);
 		convGPURow<<< num_blocks, num_threads, TILE_BYTES_ROWS + KERN_BYTES_1D >>>
@@ -209,14 +169,72 @@ int main(int argc, char** argv)
 	fprintf(stdout, "Done Seperate Gaussian-Shared on GPU.\n");
 	float elapsedTime_1d;
 	cudaEventElapsedTime(&elapsedTime_1d, start_1d, stop_1d); 
-	fprintf(stdout, "Time elapsed: %f ms\n", elapsedTime_1d/100);
+	fprintf(stdout, "Time elapsed: %f ms\n", elapsedTime_1d/10);
 
 	cv::Mat resg1d = array2Img(dstgr, img_rows, img_cols);
 	imwrite( "Smoothed_Image_GPUs-1d.jpg", resg1d);
 
 
 
+	/** Double threshold test */
+	double lo = 0.008;
+	double hi = 0.08;
+	double **edge_map = cudaMallocManaged2D(img_rows, img_cols);
+	doubleThreshold(dstgr, img_rows, img_cols, lo, hi, edge_map);
+	Mat res_edge = array2Img(edge_map, img_rows, img_cols);
+	imwrite("edge_result.jpg", res_edge);
+
+    /** Distance transform test */
+	double **dist_map = cudaMallocManaged2D(img_rows, img_cols);
+	distTrans(src, img_rows, img_cols ,dist_map);
+	Mat res_dist = array2Img(dist_map, img_rows, img_cols);
+	imwrite("distTrans_result.jpg", res_dist);
+
+	/** Image dilation test */
+	double **dilated_img = cudaMallocManaged2D(img_rows, img_cols);
+	dilate(dist_map, img_rows, img_cols, 2, dilated_img);
+	Mat res_dilated = array2Img(dilated_img, img_rows, img_cols);
+	imwrite( "dilation_result.jpg", res_dilated);
+
+	/** Search matching test*/
 	
+	double **matched_map = cudaMallocManaged2D(img_rows, img_cols);
+	printf("Search matching on CPU ");
+	conv(dilated_img, img_rows, img_cols, T, tmp_rows, tmp_cols, matched_map);
+	Mat res_matched = array2Img(matched_map, img_rows, img_cols);
+	imwrite( "search_result.jpg", res_matched);
+	
+
+
+    cudaEventCreate(&start_s);
+	cudaEventCreate(&stop_s);
+	cudaEventRecord(start_s, 0);
+	for(int i = 0; i < 10; ++i){
+	convGPUShared<<< num_blocks_s, num_threads_s, TILE_BYTES + KERN_BYTES >>>
+		(src, img_rows, img_cols, T, tmp_rows, tmp_cols, matched_map);
+	}
+	cudaEventRecord(stop_s, 0);
+	cudaEventSynchronize(stop_s);
+	elapsedTime_g;
+	cudaEventElapsedTime(&elapsedTime_g, start_s, stop_s); 
+	fprintf(stdout, "Search matching on GPU: %f ms\n", elapsedTime_g/10);
+
+	res_matched = array2Img(matched_map, img_rows, img_cols);
+	imwrite( "search_result.jpg", res_matched);
+
+	/** Non maximum supression test */
+	int t_rows = 10;
+	int t_cols = 10;
+	double p = 0.9;
+	double **nms_map = memAlloc2D(img_rows, img_cols);
+	nonMaxSupression(matched_map, img_rows, img_cols, t_rows, t_cols, p, nms_map);
+	Mat res_nms = array2Img(nms_map, img_rows, img_cols);
+	imwrite( "nms_result.jpg", res_nms);
+
+	/** Draw the matched result*/
+	drawBox(nms_map, img_rows, img_cols, tmp_rows, tmp_cols, image_rgb);
+	// Mat final_res = array2Img(src, img_rows, img_cols);
+	imwrite("../result/final_result.jpg",image_rgb);
 
 
 
