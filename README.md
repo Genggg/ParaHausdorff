@@ -9,7 +9,7 @@
 
 ## Software Architecture
 
-![image](https://github.com/Genggg/ParaHausdorff/blob/master/flow.png)
+![image](https://github.com/Genggg/ParaHausdorff/blob/master/flow.png =300x)
 
 ### Dependencies
 - OpenCV 3.4.1 (only for loading images)
