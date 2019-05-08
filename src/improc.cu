@@ -178,7 +178,7 @@ void doubleThreshold (double **src, int src_rows, int src_cols, double lo, doubl
 					peaks[i][j] = 1;
 					if (gradientMag[i][j] >= hi) {
 						dst[i][j] = 255;
-						printf("Strong edge pixel (%d, %d)\n", i, j);
+						// printf("Strong edge pixel (%d, %d)\n", i, j);
 					}
 					else if (gradientMag[i][j] < lo) dst[i][j] = 0;
 				}
@@ -197,14 +197,14 @@ void doubleThreshold (double **src, int src_rows, int src_cols, double lo, doubl
 				for (int c = -1; c <= 1; c++) {
 					if (dst[i+r][j+c] == 255) {
 						dst[i][j] = 255;
-						printf("Weak edge pixel (%d, %d)\n", i, j);
+						// printf("Weak edge pixel (%d, %d)\n", i, j);
 					}
 				}
 			}
 		}
 	}
 	t2 = omp_get_wtime();
-	printf("Find week edge [%d, %d] : %f ms\n", src_rows, src_cols, (t2-t1)*1000);
+	printf("Find weak edge [%d, %d] : %f ms\n", src_rows, src_cols, (t2-t1)*1000);
 
 }
 
@@ -278,20 +278,9 @@ void distTrans(double **src, int src_rows, int src_cols, double **dst) {
 		}
 		
 		delete[] index_i;
-
-		// for (int i = min(k, src_rows-1); i >= 0 && k - i < src_cols; i--) {
-		// 	int j = k - i;
-		// 	if (i == 0 && j == 0) continue;
-		// 	else if (i == 0) dst[i][j] = min(dst[i][j], dst[i][j-1] + 1);
-		// 	else if (j == 0) dst[i][j] = min(dst[i][j], dst[i-1][j] + 1);
-		// 	else dst[i][j] = min(dst[i][j], min(dst[i][j-1], dst[i-1][j]) + 1);
-		// }
 	}
-	t2 = omp_get_wtime();
-	printf("1st pass [%d, %d] : %f ms\n", src_rows, src_cols, (t2-t1)*1000);
 
 	/** Second pass */
-	t1 = omp_get_wtime();
 	for (int k = src_rows + src_cols - 2; k >= 0; k--) {
 		int start;
 		int length;
@@ -340,18 +329,10 @@ void distTrans(double **src, int src_rows, int src_cols, double **dst) {
 		}
 
 		delete[] index_j;
-
-		// for (int j = min(k, src_cols-1); j >= 0 && k - j < src_rows; j--) {
-		// 	int i = k - j;
-		// 	if (i == src_rows - 1 && j == src_cols - 1) continue;
-		// 	else if (i == src_rows - 1) dst[i][j] = min(dst[i][j], dst[i][j+1] + 1);
-		// 	else if (j == src_cols - 1) dst[i][j] = min(dst[i][j], dst[i+1][j] + 1);
-		// 	else dst[i][j] = min(dst[i][j], min(dst[i][j+1], dst[i+1][j]) + 1);
-		// }
 	}
 	t2 = omp_get_wtime();
-	printf("2nd pass [%d, %d] : %f ms.\n", src_rows, src_cols, (t2-t1)*1000);
-	// printf("DistTrans [%d, %d] : %gs\n", src_rows, src_cols, t2-t1);
+	
+	printf("DistTrans [%d, %d] : %gms\n", src_rows, src_cols, (t2-t1)*1000);
 }
 
 /**
@@ -392,15 +373,11 @@ void nonMaxSupression(double **src, int src_rows, int src_cols, int t_rows, int 
 				global_max = src[x][y];
 		}
 	}
-	t2 = omp_get_wtime();
-	printf("Global max [%d, %d] : %f ms\n", src_rows, src_cols, (t2-t1)*1000);
 
 
 	int offset_x = t_rows / 2;
 	int offset_y = t_cols / 2;
 	double threshold = global_max * p;
-	//std::vector<std::pair<int,int> > locs;
-	t1 = omp_get_wtime();
 	#pragma omp parallel for collapse(2) if (USE_OMP)
 	for (int x = 1; x < src_rows - 1; x++) {
 		for (int y = 1; y < src_cols - 1; y++) {
@@ -423,23 +400,20 @@ void nonMaxSupression(double **src, int src_rows, int src_cols, int t_rows, int 
 				}
 				if (src[x][y] == local_max && local_sum == 0) {
 					dst[x][y] = src[x][y];
-					printf("Detected (%d,%d)\n",x,y);
-					//pair<int,int> loc(x,y);
-					//locs.push_back(loc);
 				}
 			}
 		}
 	}
 	t2 = omp_get_wtime();
 
-	printf("NMS [%d, %d] : %gms\n", src_rows, src_cols, (t2-t1)*1000);
+	printf("Non maximum supression [%d, %d] : %gms\n", src_rows, src_cols, (t2-t1)*1000);
 }
 
 
-void drawBox(double **src, int src_rows, int src_cols, int t_rows, int t_cols, double **dst){
+void drawBox(double **src, int src_rows, int src_cols, int t_rows, int t_cols, Mat &img_rgb){
 	double t1, t2;
-        double sizeGB = src_rows * src_cols * sizeof(double) / (1024.0 * 1024.0 * 1024.0);
-        //omp_set_num_threads(NUM_THREADS);
+    double sizeGB = src_rows * src_cols * sizeof(double) / (1024.0 * 1024.0 * 1024.0);
+    //omp_set_num_threads(NUM_THREADS);
 	int offset_x = t_rows / 2;
         int offset_y = t_cols / 2;
 
@@ -451,13 +425,27 @@ void drawBox(double **src, int src_rows, int src_cols, int t_rows, int t_cols, d
 			int left = max(y - offset_y, 0);
 			int right = min(y + offset_y, src_rows - 1);
 			for (int j = left; j <= right; j++) {
-				dst[top][j] = 123;
-				dst[buttom][j] = 123;
+				img_rgb.at<Vec3b>(top, j) = Vec3b(0,0,255);
+				img_rgb.at<Vec3b>(buttom, j) = Vec3b(0,0,255);
+				// img_rgb.at<Vec3b>(top, j)[0] = 255;
+				// img_rgb.at<Vec3b>(top, j)[1] = 0;
+				// img_rgb.at<Vec3b>(top, j)[2] = 0;
+				// img_rgb.at<Vec3b>(buttom, j)[0] = 255;
+				// img_rgb.at<Vec3b>(buttom, j)[0] = 0;
+				// img_rgb.at<Vec3b>(buttom, j)[0] = 0;
+				// cout << img_rgb.at<Vec3b>(buttom, j);
 			}
 			for (int i = top; i <= buttom; i++) {
-                                dst[i][left] = 123;
-				dst[i][right] = 123;
-                        }
+				img_rgb.at<Vec3b>(i, left) = Vec3b(0,0,255);
+				img_rgb.at<Vec3b>(i, right) = Vec3b(0,0,255);
+
+				// img_rgb.at<Vec3b>(i, left)[0] = 255;
+				// img_rgb.at<Vec3b>(i, left)[1] = 0;
+				// img_rgb.at<Vec3b>(i, left)[2] = 0;
+				// img_rgb.at<Vec3b>(i, right)[0] = 255;
+				// img_rgb.at<Vec3b>(i, right)[0] = 0;
+				// img_rgb.at<Vec3b>(i, right)[0] = 0;
+            }
 		}
 	}
 }
