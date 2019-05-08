@@ -19,6 +19,11 @@ double** memAlloc2D(int rows, int cols);
 double** cudaMallocManaged2D(int rows, int cols);
 
 /**
+ * Get a 1D Gaussian kernel
+ */
+ double* get1DGaussianKernel(int rows, double sigma);
+
+/**
  * Get a 2D Gaussian kernel
  */
 double** getGaussianKernel(int rows, int cols, double sigmax, double sigmay);

@@ -79,7 +79,7 @@ int main(int argc, char** argv)
 	Mat res5 = array2Img(src, img_rows, img_cols);
 	imwrite("final_result.jpg",res5);
 	
-	/** Test on GPU Gaussian Filtering Kernel on Global Memory */ 
+	/** Test on the GPU Gaussian Filtering Kernel on Global Memory */ 
 
 	// Show some related infomation regarding the GPU
 
@@ -136,7 +136,7 @@ int main(int argc, char** argv)
 	imwrite( "Smoothed_Image_GPU.jpg", resg);
 
 
-	/** Test on GPU Gaussian Filtering Kernel on Shared Memory */ 
+	/** Test on the GPU Gaussian Filtering Kernel on Shared Memory */ 
 
 	double **dstgs = cudaMallocManaged2D(img_rows, img_cols);
 
@@ -177,6 +177,46 @@ int main(int argc, char** argv)
 
 	cv::Mat resgs = array2Img(dstgs, img_rows, img_cols);
 	imwrite( "Smoothed_Image_GPUs.jpg", resgs);
+
+	/** Test on 1D GPU Gaussian Filtering Kernels on Shared Memory */
+
+
+	double *gauss_1d_kernel = get1DGaussianKernel(ker_rows,2);
+	double **dstgr = cudaMallocManaged2D(img_rows, img_cols);
+	double **dstgc = cudaMallocManaged2D(img_rows, img_cols);
+
+	// For 1D Filtering: Share memory size: tile x 32; Thread block size: 32 x 32
+	// The number of blocks are also the same as the global one
+
+	const int TILE_BYTES_COLS = sizeof(double) * tile_cols * num_threads_row;
+	const int TILE_BYTES_ROWS = sizeof(double) * tile_rows * num_threads_col;
+
+	const int KERN_BYTES_1D = sizeof(double) * ker_rows;
+
+	cudaEvent_t start_1d, stop_1d;
+    cudaEventCreate(&start_1d);
+	cudaEventCreate(&stop_1d);
+	cudaEventRecord(start_1d, 0);
+	for(int i = 0; i < 100; ++i){
+		convGPUCol<<< num_blocks, num_threads, TILE_BYTES_COLS + KERN_BYTES_1D >>>
+			(src, img_rows, img_cols, gauss_1d_kernel, ker_cols, dstgc);
+		convGPURow<<< num_blocks, num_threads, TILE_BYTES_ROWS + KERN_BYTES_1D >>>
+		(dstgc, img_rows, img_cols, gauss_1d_kernel, ker_rows, dstgr);
+	}
+
+	cudaEventRecord(stop_1d, 0);
+	cudaEventSynchronize(stop_1d);
+	fprintf(stdout, "Done Seperate Gaussian-Shared on GPU.\n");
+	float elapsedTime_1d;
+	cudaEventElapsedTime(&elapsedTime_1d, start_1d, stop_1d); 
+	fprintf(stdout, "Time elapsed: %f ms\n", elapsedTime_1d/100);
+
+	cv::Mat resg1d = array2Img(dstgr, img_rows, img_cols);
+	imwrite( "Smoothed_Image_GPUs-1d.jpg", resg1d);
+
+
+
+	
 
 
 

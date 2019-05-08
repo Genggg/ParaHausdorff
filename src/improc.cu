@@ -40,6 +40,24 @@ double** cudaMallocManaged2D(int rows, int cols){
 	return array;
 }
 
+
+/**
+ * Get a 1D Gaussian kernel
+ */
+ double* get1DGaussianKernel(int rows, double sigma)
+ {
+	 Mat gauss = cv::getGaussianKernel(rows, sigma, CV_64F);
+
+ 
+	 double *array;
+	 cudaMallocManaged(&array, rows*sizeof(double));
+	 for (int i=0; i< rows; ++i) {
+			array[i] = gauss.at<double>(i);
+	 }
+ 
+	 return array;
+ }
+
 /**
  * Get a 2D Gaussian kernel
  */
@@ -352,7 +370,7 @@ void dilate(double **src, int src_rows, int src_cols, int d, double **dst) {
 		}
 	}
 	t2 = omp_get_wtime();
-	printf("Dilation [%d, %d] : %f ms.\n", src_rows, src_cols, (t2-t1)*1000);
+	printf("Dilation [%d, %d] : %f ms\n", src_rows, src_cols, (t2-t1)*1000);
 }
 
 /**
@@ -375,7 +393,7 @@ void nonMaxSupression(double **src, int src_rows, int src_cols, int t_rows, int 
 		}
 	}
 	t2 = omp_get_wtime();
-	printf("Global max [%d, %d] : %gs\n", src_rows, src_cols, t2-t1);
+	printf("Global max [%d, %d] : %f ms\n", src_rows, src_cols, (t2-t1)*1000);
 
 
 	int offset_x = t_rows / 2;
@@ -413,6 +431,7 @@ void nonMaxSupression(double **src, int src_rows, int src_cols, int t_rows, int 
 		}
 	}
 	t2 = omp_get_wtime();
+
 	printf("NMS [%d, %d] : %gms\n", src_rows, src_cols, (t2-t1)*1000);
 }
 
